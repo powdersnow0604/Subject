@@ -1,0 +1,10 @@
+push reg 28 push reg 29 push mem 14 push reg 16 sub sub mul
+push reg 30 push mem 23 push reg 15 push reg 5 sub sub sub
+push reg 21 push reg 25 push reg 18 push mem 20 sub mul iorequest add
+push reg 4 push reg 8 push mem 30 push reg 13 pop mem 25 add pop mem 5
+push reg 22 push mem 10 push mem 7 push mem 24 add iorequest pop reg 23 sub
+push reg 29 push reg 12 push reg 26 push mem 24 iorequest iorequest sub add iorequest iorequest iorequest pop mem 26
+push reg 7 push mem 12 push reg 2 push mem 16 sub mul sub
+push reg 4 push reg 17 push mem 13 push reg 4 mul pop mem 21 sub
+push reg 11 push mem 20 push reg 26 push reg 30 mul add iorequest mul
+push reg 27 push reg 6 push mem 31 push reg 27 sub add mul
