@@ -168,6 +168,10 @@ BOOL CImgprocessingsDoc::OnOpenDocument(LPCTSTR lpszPathName)
 		m_height = 128;
 		m_width = 128;
 	}
+	else if (File.GetLength() == (unsigned long long)(64 * 64)) {
+		m_height = 64;
+		m_width = 64;
+	}
 	else {
 		AfxMessageBox((LPCTSTR)L"Not Support Image Size");
 		return 0;
@@ -1763,7 +1767,7 @@ void CImgprocessingsDoc::OnCannyEdgeDetection()
 		double phase;
 	}gradient;
 
-	int i, j, m, n, dr1, dc1, dr2, dc2;
+	int i, j, dr1, dc1, dr2, dc2;
 	double** RowDiffMask, ** ColDiffMask, ** RowDetec, ** ColDetec, median = 0, max, min, temp;
 	gradient** ImageGradient;
 
@@ -2510,7 +2514,7 @@ void CImgprocessingsDoc::OnBicubic()
 				else if (newOutputValue < 0.)
 					newOutputValue = 0.;
 
-				m_OutputImage[i * m_Re_width + j] = newOutputValue;
+				m_OutputImage[i * m_Re_width + j] = (unsigned char)newOutputValue;
 				
 			}
 		}
@@ -2594,7 +2598,7 @@ void CImgprocessingsDoc::OnBSpline()
 														newValue[2] * OnBSplineParam(1 - s_H) + newValue[3] * OnBSplineParam(2 - s_H)));
 
 
-				m_OutputImage[i * m_Re_width + j] = newOutputValue;
+				m_OutputImage[i * m_Re_width + j] = (unsigned char)newOutputValue;
 
 			}
 		}
@@ -2936,7 +2940,7 @@ void CImgprocessingsDoc::OnRotation()
 		m_Re_width = (int)(m_height * cos(M_PI / 2 - Radian) + m_width * cos(Radian));
 	}
 	else if (Radian < 0) {
-		Radian += 2*M_PI;
+		Radian += M_PI/2;
 		goto DecideLen;
 	}
 	else {
@@ -2994,4 +2998,819 @@ void CImgprocessingsDoc::OnRotation()
 	free(tempArray);
 	free(m_tempImage[0]);
 	free(m_tempImage);
+}
+
+
+void CImgprocessingsDoc::OnWarping()
+{
+	int i, j, k, pointx = m_width / 2, pointy = m_height / 2;
+	int pointWx = 64, pointWy = 64, X, Y;
+	double u, h, d, weight, t_x, t_y, totalWeight, srcx, srcy, temp , a = 0.001, b = 2.0, p = 0.75;
+
+	typedef struct {
+		int Lx;
+		int Ly;
+		int L1x;
+		int L1y;
+	}cntrLine;
+
+	/*
+	FILE* file;
+	fopen_s(&file, "C:\\Users\\darak\\OneDrive\\Desktop\\check.txt", "wb+");
+	if (file == (FILE*)0) return;
+	*/
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = (unsigned char*)malloc(sizeof(unsigned char) * m_Re_size);
+
+	
+	cntrLine cLine[8], cLineSrc[8];
+	int cntrLnum = sizeof(cLine) / sizeof(cntrLine);
+
+	
+	//제어선 초기화
+	for (i = 0; i < cntrLnum; i++) {
+		cLine[i].Lx = pointx + pointWx;
+		cLine[i].Ly = pointy + pointWy;
+		cLine[i].L1x = (i % 2) * (m_Re_width - 1);
+		cLine[i].L1y = (i / 2) * (m_Re_height - 1);
+	}
+
+	cLine[4].Lx = pointx + pointWx;
+	cLine[4].Ly = pointy + pointWy;
+	cLine[4].L1x = 128;
+	cLine[4].L1y = 0;
+
+	cLine[5].Lx = pointx + pointWx;
+	cLine[5].Ly = pointy + pointWy;
+	cLine[5].L1x = 0;
+	cLine[5].L1y = 128;
+
+	cLine[6].Lx = pointx + pointWx;
+	cLine[6].Ly = pointy + pointWy;
+	cLine[6].L1x = 256;
+	cLine[6].L1y = 128;
+
+	cLine[7].Lx = pointx + pointWx;
+	cLine[7].Ly = pointy + pointWy;
+	cLine[7].L1x = 128;
+	cLine[7].L1y = 256;
+
+	for (i = 0; i < cntrLnum; i++) {
+		cLineSrc[i].Lx = pointx;
+		cLineSrc[i].Ly = pointy;
+		cLineSrc[i].L1x = (i % 2) * (m_Re_width - 1);
+		cLineSrc[i].L1y = (i / 2) * (m_Re_height - 1);
+	}
+	
+	cLineSrc[4].Lx = pointx + pointWx;
+	cLineSrc[4].Ly = pointy + pointWy;
+	cLineSrc[4].L1x = 128;
+	cLineSrc[4].L1y = 0;
+
+	cLineSrc[5].Lx = pointx + pointWx;
+	cLineSrc[5].Ly = pointy + pointWy;
+	cLineSrc[5].L1x = 0;
+	cLineSrc[5].L1y = 128;
+
+	cLineSrc[6].Lx = pointx + pointWx;
+	cLineSrc[6].Ly = pointy + pointWy;
+	cLineSrc[6].L1x = 256;
+	cLineSrc[6].L1y = 128;
+
+	cLineSrc[7].Lx = pointx + pointWx;
+	cLineSrc[7].Ly = pointy + pointWy;
+	cLineSrc[7].L1x = 128;
+	cLineSrc[7].L1y = 256;
+
+	//계산
+	for (i = 0; i < m_Re_height; i++) {
+		for (j = 0; j < m_Re_width; j++) {
+			
+			t_x = 0; t_y = 0; totalWeight = 0;
+			for (k = 0; k < cntrLnum; k++) {
+				
+				//수직 교차점의 위치 계산
+				u = (double)((j - cLine[k].Lx) * (cLine[k].L1x - cLine[k].Lx) + (i - cLine[k].Ly) * (cLine[k].L1y - cLine[k].Ly)) /
+					(pow(cLine[k].L1x - cLine[k].Lx, 2) + pow(cLine[k].L1y - cLine[k].Ly, 2));
+
+				//제이선으로부터의 수직 변위 계산
+				h = (double)((i - cLine[k].Ly) * (cLine[k].L1x - cLine[k].Lx) - (j - cLine[k].Lx) * (cLine[k].L1y - cLine[k].Ly)) /
+					sqrt(pow(cLine[k].L1x - cLine[k].Lx, 2) + pow(cLine[k].L1y - cLine[k].Ly, 2));
+
+				//입력 영상에서의 대응 픽셀의 위치 계산
+				srcx = cLineSrc[k].Lx + u * (cLineSrc[k].L1x - cLineSrc[k].Lx) - (double)(h*(cLineSrc[k].L1y - cLineSrc[k].Ly)) / 
+						sqrt(pow(cLineSrc[k].L1x - cLineSrc[k].Lx, 2) + pow(cLineSrc[k].L1y - cLineSrc[k].Ly, 2));
+
+				srcy = cLineSrc[k].Ly + u * (cLineSrc[k].L1y - cLineSrc[k].Ly) - (double)(h * (cLineSrc[k].L1x - cLineSrc[k].Lx)) /
+					sqrt(pow(cLineSrc[k].L1x - cLineSrc[k].Lx, 2) + pow(cLineSrc[k].L1y - cLineSrc[k].Ly, 2));
+				
+				
+				//픽셀과 제어선 사이의 거리
+				if (u < 0) {
+					d = sqrt(pow(j - cLine[k].Lx, 2) + pow(i - cLine[k].Ly, 2));
+				}
+				else if (0 <= u && u <= 1){//sqrt(pow(cLine[k].L1x - cLine[k].Lx, 2) + pow(cLine[k].L1y - cLine[k].Ly, 2))) {
+					d = abs(h);
+				}
+				else if (u > 1){//sqrt(pow(cLine[k].L1x - cLine[k].Lx, 2) + pow(cLine[k].L1y - cLine[k].Ly, 2))) {
+					d = sqrt(pow(j - cLine[k].L1x, 2) + pow(i - cLine[k].L1y, 2));
+				}
+
+				//제어선의 가중치 계산
+				weight = pow(pow(sqrt(pow(cLine[k].L1x - cLine[k].Lx, 2) + pow(cLine[k].L1y - cLine[k].Ly, 2)), p) / (a + d), b);
+
+				//입력 영상의 대응 픽셀과의 변위 누적
+				t_x += (srcx - j) * weight;
+				t_y += (srcy - i) * weight;
+				totalWeight += weight;
+				
+			}
+			
+			//fprintf(file, "(%.4lf, %.4lf, %.4lf)\n", t_x , t_y, totalWeight);
+			X = j + (int)lround(t_x / totalWeight);
+			Y = i + (int)lround(t_y / totalWeight);
+			
+			if (X < 0) {
+				X = 0;
+			}
+			else if (X >= m_width) {
+				X = m_width - 1;
+			}
+
+			if (Y < 0) {
+				Y = 0;
+			}
+			else if (Y >= m_height) {
+				Y = m_height - 1;
+			}
+			
+
+			
+			m_OutputImage[i * m_Re_width + j] = m_InputImage[Y * m_width + X];
+		}
+	}
+	//fclose(file);
+
+}
+
+
+void CImgprocessingsDoc::OnFrameSum()
+{
+	CFile File;
+	CFileDialog OpenDlg(TRUE);
+
+	int i;
+	double a = 0.5;
+	unsigned char* temp;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = (unsigned char*)malloc(sizeof(unsigned char) * m_Re_size);
+
+	if (OpenDlg.DoModal() == IDOK) {
+		File.Open(OpenDlg.GetPathName(), CFile::modeRead);
+
+		if (File.GetLength() == (unsigned)m_width * m_height) {
+			temp = new unsigned char[m_size];
+
+			File.Read(temp, m_size);
+			File.Close();
+
+			for (i = 0; i < m_size; i++) {
+				if (a * m_InputImage[i] + (1 - a) * temp[i] > 255)
+					m_OutputImage[i] = 255;
+				else
+					m_OutputImage[i] = a * m_InputImage[i] + (1 - a) * temp[i];
+			}
+		}
+		else {
+			AfxMessageBox(L"Image size not matched");
+			return;
+		}
+	}
+}
+
+
+void CImgprocessingsDoc::OnFrameSub()
+{
+	CFile File;
+	CFileDialog OpenDlg(TRUE);
+
+	int i;
+	unsigned char* temp;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = (unsigned char*)malloc(sizeof(unsigned char) * m_Re_size);
+
+	if (OpenDlg.DoModal() == IDOK) {
+		File.Open(OpenDlg.GetPathName(), CFile::modeRead);
+
+		if (File.GetLength() == (unsigned)m_width * m_height) {
+			temp = new unsigned char[m_size];
+
+			File.Read(temp, m_size);
+			File.Close();
+
+			for (i = 0; i < m_size; i++) {
+				if (m_InputImage[i] - temp[i] < 0)
+					m_OutputImage[i] = 0;
+				else
+					m_OutputImage[i] = m_InputImage[i] - temp[i];
+			}
+		}
+		else {
+			AfxMessageBox(L"Image size not matched");
+			return;
+		}
+	}
+}
+
+
+void CImgprocessingsDoc::OnFrameMul()
+{
+	CFile File;
+	CFileDialog OpenDlg(TRUE);
+
+	int i;
+	unsigned char* temp;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = (unsigned char*)malloc(sizeof(unsigned char) * m_Re_size);
+
+	if (OpenDlg.DoModal() == IDOK) {
+		File.Open(OpenDlg.GetPathName(), CFile::modeRead);
+
+		if (File.GetLength() == (unsigned)m_width * m_height) {
+			temp = new unsigned char[m_size];
+
+			File.Read(temp, m_size);
+			File.Close();
+
+			for (i = 0; i < m_size; i++) {
+				if (m_InputImage[i] * temp[i] > 255)
+					m_OutputImage[i] = 255;
+				else
+					m_OutputImage[i] = m_InputImage[i] * temp[i];
+			}
+		}
+		else {
+			AfxMessageBox(L"Image size not matched");
+			return;
+		}
+	}
+}
+
+
+void CImgprocessingsDoc::OnFrameDiv()
+{
+	CFile File;
+	CFileDialog OpenDlg(TRUE);
+
+	int i;
+	unsigned char* temp;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = (unsigned char*)malloc(sizeof(unsigned char) * m_Re_size);
+
+	if (OpenDlg.DoModal() == IDOK) {
+		File.Open(OpenDlg.GetPathName(), CFile::modeRead);
+
+		if (File.GetLength() == (unsigned)m_width * m_height) {
+			temp = new unsigned char[m_size];
+
+			File.Read(temp, m_size);
+			File.Close();
+
+			for (i = 0; i < m_size; i++) {
+				if (m_InputImage[i] == 0)
+					m_OutputImage[i] = 0;
+				else if (temp[i] == 0)
+					m_OutputImage[i] = 255;
+				else
+					m_OutputImage[i] = (unsigned char)(m_InputImage[i] / temp[i]);
+			}
+		}
+		else {
+			AfxMessageBox(L"Image size not matched");
+			return;
+		}
+	}
+}
+
+
+void CImgprocessingsDoc::OnFrameMean()
+
+{
+	CFile File;
+	CFileDialog OpenDlg(TRUE);
+
+	int i;
+	unsigned char* temp;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = (unsigned char*)malloc(sizeof(unsigned char) * m_Re_size);
+
+	if (OpenDlg.DoModal() == IDOK) {
+		File.Open(OpenDlg.GetPathName(), CFile::modeRead);
+
+		if (File.GetLength() == (unsigned)m_width * m_height) {
+			temp = new unsigned char[m_size];
+
+			File.Read(temp, m_size);
+			File.Close();
+
+			for (i = 0; i < m_size; i++) {
+				m_OutputImage[i] = (unsigned char)((m_InputImage[i] + temp[i]) / 2);
+			}
+		}
+		else {
+			AfxMessageBox(L"Image size not matched");
+			return;
+		}
+	}
+}
+
+
+void CImgprocessingsDoc::OnFrameAnd()
+{
+	CFile File;
+	CFileDialog OpenDlg(TRUE);
+
+	int i;
+	unsigned char* temp;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = (unsigned char*)malloc(sizeof(unsigned char) * m_Re_size);
+
+	if (OpenDlg.DoModal() == IDOK) {
+		File.Open(OpenDlg.GetPathName(), CFile::modeRead);
+
+		if (File.GetLength() == (unsigned)m_width * m_height) {
+			temp = new unsigned char[m_size];
+
+			File.Read(temp, m_size);
+			File.Close();
+
+			for (i = 0; i < m_size; i++) {
+				m_OutputImage[i] = (unsigned char)(m_InputImage[i] & temp[i]);
+			}
+		}
+		else {
+			AfxMessageBox(L"Image size not matched");
+			return;
+		}
+	}
+}
+
+
+void CImgprocessingsDoc::OnFrameOr()
+{
+	CFile File;
+	CFileDialog OpenDlg(TRUE);
+
+	int i;
+	unsigned char* temp;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = (unsigned char*)malloc(sizeof(unsigned char) * m_Re_size);
+
+	if (OpenDlg.DoModal() == IDOK) {
+		File.Open(OpenDlg.GetPathName(), CFile::modeRead);
+
+		if (File.GetLength() == (unsigned)m_width * m_height) {
+			temp = new unsigned char[m_size];
+
+			File.Read(temp, m_size);
+			File.Close();
+
+			for (i = 0; i < m_size; i++) {
+				m_OutputImage[i] = (unsigned char)(m_InputImage[i] | temp[i]);
+			}
+		}
+		else {
+			AfxMessageBox(L"Image size not matched");
+			return;
+		}
+	}
+}
+
+
+void CImgprocessingsDoc::OnFrameComb()
+{
+	CFile File;
+	CFileDialog OpenDlg(TRUE);
+
+	int i;
+	unsigned char* temp, *masktemp, maskvalue;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = (unsigned char*)malloc(sizeof(unsigned char) * m_Re_size);
+
+	AfxMessageBox(L"합성할 영상 선택");
+
+	if (OpenDlg.DoModal() == IDOK) {
+		File.Open(OpenDlg.GetPathName(), CFile::modeRead);
+
+		if (File.GetLength() == (unsigned)m_width * m_height) {
+			temp = new unsigned char[m_size];
+
+			File.Read(temp, m_size);
+			File.Close();
+		}
+		else {
+			AfxMessageBox(L"Image size not matched");
+			return;
+		}
+	}
+
+	AfxMessageBox(L"마스크 선택");
+
+	if (OpenDlg.DoModal() == IDOK) {
+		File.Open(OpenDlg.GetPathName(), CFile::modeRead);
+
+		if (File.GetLength() == (unsigned)m_width * m_height) {
+			masktemp = new unsigned char[m_size];
+			File.Read(masktemp, m_size);
+			File.Close();
+		}
+		else {
+			AfxMessageBox(L"mask size not matched");
+			return;
+		}
+	}
+
+	for (i = 0; i < m_size; i++) {
+		maskvalue = 255 - masktemp[i];
+		m_OutputImage[i] = (m_InputImage[i] & masktemp[i]) | (temp[i] & maskvalue);
+	}
+}
+
+
+void CImgprocessingsDoc::OnBinaryErosion(int num, BOOL useDlg, BOOL useMaskInput, double InMask[][3])
+{
+	CConstantDlg dlg;
+
+	int i, j, n, m;
+	double MaskDefault[3][3] = { {255., 255., 255.}, {255., 255., 255.}, {255., 255., 255.} };
+	double** tempInput, s = 0., (*Mask)[3];
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_size;
+	
+	m_OutputImage = new unsigned char[m_Re_size];
+
+	tempInput = Image2DMem(m_height + 2, m_width+2);
+
+	if (useDlg) {
+		if (dlg.DoModal() == IDOK) {
+			num = (int)dlg.m_Constant;
+			if (num < 1) {
+				AfxMessageBox(L"num must be larger than 1");
+				return;
+			}
+		}
+	}
+
+	if (useMaskInput) {
+		Mask = InMask;
+	}
+	else {
+		Mask = MaskDefault;
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			tempInput[i + 1][j + 1] = (double)m_InputImage[i * m_width + j];
+		}
+	}
+
+	while (num-- >= 1) {
+		for (i = 0; i < m_height; i++) {
+			for (j = 0; j < m_width; j++) {
+				
+				for (n = 0; n < 3; n++) {
+					for (m = 0; m < 3; m++) {
+						if (Mask[n][m] == tempInput[i + n][j + m]) {
+							s += 1.;
+						}
+					}
+				}
+	
+				/*
+				for (n = -1; n < 3; n++) {
+					if (tempInput[i + 1 + (n % 2)][j + 1 + ((n - 1) % 2)] == 255) {
+						s += 1.;
+					}
+				}
+				*/
+				if (s == 9.) {
+					m_OutputImage[i * m_Re_width + j] = (unsigned char)255.;
+				}
+				else {
+					m_OutputImage[i * m_Re_width + j] = (unsigned char)0.;
+				}
+				s = 0.;
+			}
+		}
+
+		for (i = 0; i < m_height; i++) {
+			for (j = 0; j < m_width; j++) {
+				tempInput[i + 1][j + 1] = (double)m_OutputImage[i * m_width + j];
+			}
+		}
+	}
+
+	free(tempInput[0]);
+	free(tempInput);
+}
+
+
+void CImgprocessingsDoc::OnBinaryDilation(int num, BOOL useDlg, BOOL useMaskInput, double InMask[][3])
+{
+	CConstantDlg dlg;
+
+	int i, j, n, m;
+	double MaskDefault[3][3] = { {0., 0., 0.}, {0., 0., 0.}, {0., 0., 0.} };
+	double** tempInput, s = 0., (*Mask)[3];
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_size;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+
+	tempInput = Image2DMem(m_height + 2, m_width + 2);
+
+	if (useDlg) {
+		if (dlg.DoModal() == IDOK) {
+			num = (int)dlg.m_Constant;
+			if (num < 1) {
+				AfxMessageBox(L"num must be larger than 1");
+				return;
+			}
+		}
+	}
+
+	if (useMaskInput) {
+		Mask = InMask;
+	}
+	else {
+		Mask = MaskDefault;
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			tempInput[i + 1][j + 1] = (double)m_InputImage[i * m_width + j];
+		}
+	}
+
+	while (num-- >= 1) {
+		for (i = 0; i < m_height; i++) {
+			for (j = 0; j < m_width; j++) {
+				for (n = 0; n < 3; n++) {
+					for (m = 0; m < 3; m++) {
+						if (Mask[n][m] == tempInput[i + n][j + m]) {
+							s += 1.;
+						}
+					}
+				}
+				if (s == 9.) {
+					m_OutputImage[i * m_Re_width + j] = (unsigned char)0.;
+				}
+				else {
+					m_OutputImage[i * m_Re_width + j] = (unsigned char)255.;
+				}
+				s = 0.;
+			}
+		}
+
+		for (i = 0; i < m_height; i++) {
+			for (j = 0; j < m_width; j++) {
+				tempInput[i + 1][j + 1] = (double)m_OutputImage[i * m_width + j];
+			}
+		}
+	}
+
+	free(tempInput[0]);
+	free(tempInput);
+}
+
+
+void CImgprocessingsDoc::OnBinarySkeleton()
+{
+	int i, j, num = 0, topItemNum = 10, check = 0;
+	double** tempOutput, **tempErosion, **tempOpen;
+	double Mask[3][3] = { {255., 255., 255.}, {255., 255., 255.}, {255., 255., 255.} };
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+	m_tempImage = Image2DMem(m_height, m_width);
+	tempOutput = (double**)malloc(sizeof(double*) * topItemNum);
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			m_tempImage[i][j] = (double)m_InputImage[i * m_width + j];
+		}
+	}
+
+	while(TRUE) {
+		check = 0;
+		num++;
+
+		if (num > topItemNum) {
+			topItemNum += 10;
+			tempOutput = (double**)realloc(tempOutput, sizeof(double*) * topItemNum);
+		}
+		tempOutput[num - 1] = (double*)malloc(sizeof(double) * m_height * m_width);
+		
+		
+		//침식
+		OnBinaryErosion(1,FALSE,TRUE,Mask);
+		
+		for (i = 0; i < m_height; i++) {
+			for (j = 0; j < m_width; j++) {
+				tempOutput[num - 1][i * m_width + j] = m_InputImage[i * m_width + j];
+				m_InputImage[i * m_width + j] = m_OutputImage[i * m_Re_width + j];
+			}
+		}
+
+		//열림
+		OnBinaryDilation(1, FALSE, FALSE, NULL);
+
+
+		//차집합
+		for (i = 0; i < m_height; i++) {
+			for (j = 0; j < m_width; j++) {
+				tempOutput[num-1][i * m_width + j] -= (double)m_OutputImage[i * m_width + j];
+				if (m_OutputImage[i * m_width + j] != 0) {
+					check = 1;
+				}
+			}
+		}
+
+		if (!check) {
+			break;
+		}
+	}
+
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			m_OutputImage[i * m_Re_width + j] = 0;
+			m_InputImage[i * m_width + j] = (unsigned char)m_tempImage[i][j];
+		}
+	}
+
+	while (num-- > 0) {
+		for (i = 0; i < m_height; i++) {
+			for (j = 0; j < m_width; j++) {
+				m_OutputImage[i * m_Re_width + j] |= (int)tempOutput[num][i * m_width + j];
+			}
+		}
+	}
+}
+
+
+void CImgprocessingsDoc::OnBinaryEdgeDetec()
+{
+	int i, j;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+	m_OutputImageLB = new unsigned char[m_Re_size];
+	m_OutputImageRB = new unsigned char[m_Re_size];
+
+	OnBinaryErosion(1, FALSE, FALSE, NULL);
+
+	for (i = 0; i < m_Re_height; i++) {
+		for (j = 0; j < m_Re_width; j++) {
+			m_OutputImageLB[i * m_Re_width + j] = m_InputImage[i * m_width + j] - m_OutputImage[i * m_Re_width + j];
+		}
+	}
+
+	OnBinaryDilation(1, FALSE, FALSE, NULL);
+
+	for (i = 0; i < m_Re_height; i++) {
+		for (j = 0; j < m_Re_width; j++) {
+			m_OutputImageRB[i * m_Re_width + j] =  m_OutputImage[i * m_Re_width + j] - m_InputImage[i * m_width + j];
+		}
+	}
+
+	for (i = 0; i < m_Re_height; i++) {
+		for (j = 0; j < m_Re_width; j++) {
+			m_OutputImage[i * m_Re_width + j] = m_OutputImageLB[i * m_Re_width + j] + m_OutputImageRB[i * m_Re_width + j];
+		}
+	}
+
+	m_printImageBool = TRUE;
+}
+
+
+void CImgprocessingsDoc::OnGrayErosion()
+{
+	int i, j, n, m, h;
+	double Mask[9], MIN = 10000.;
+	double** tempInput, s = 0.;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+
+	tempInput = Image2DMem(m_height + 2, m_width + 2);
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			tempInput[i + 1][j + 1] = (double)m_InputImage[i * m_width + j];
+		}
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			MIN = 10000.;
+			for (n = 0; n < 3; n++) {
+				for (m = 0; m < 3; m++) {
+					Mask[n * 3 + m] = tempInput[i + n][j + m];
+				}
+			}
+			for (h = 0; h < 9; h++) {
+				if (Mask[h] < MIN)
+					MIN = Mask[h];
+			}
+			m_OutputImage[i * m_Re_width + j] = (unsigned char)MIN;
+		}
+	}
+}
+
+
+void CImgprocessingsDoc::OnGrayDilation()
+{
+	int i, j, n, m, h;
+	double Mask[9], MAX = 0.;
+	double** tempInput, s = 0.;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+
+	tempInput = Image2DMem(m_height + 2, m_width + 2);
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			tempInput[i + 1][j + 1] = (double)m_InputImage[i * m_width + j];
+		}
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			MAX = 0.;
+			for (n = 0; n < 3; n++) {
+				for (m = 0; m < 3; m++) {
+					Mask[n * 3 + m] = tempInput[i + n][j + m];
+				}
+			}
+			for (h = 0; h < 9; h++) {
+				if (Mask[h] > MAX)
+					MAX = Mask[h];
+			}
+			m_OutputImage[i * m_Re_width + j] = (unsigned char)MAX;
+		}
+	}
 }
