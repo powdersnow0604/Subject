@@ -12,6 +12,7 @@ static int OnReverseBitOrder(int index, int LOG2N);
 static void relocate(complex_num* X, int N, int radix, complex_num* temp);
 static int OnReverseBitOrder4(int x, int log2N);
 static void OnButterfly_radix_2(complex_num* P, int n,int mode);
+static void OnButterfly_radix_2_loop(complex_num* P, int n, int Log2N, int mode);
 static void OnButterfly_radix_4(complex_num* P, int n, int mode);
 #pragma region OnButterfly_radix_k
 static void OnButterfly_radix_k(complex_num* P, int n, int radix, int mode);
@@ -192,6 +193,7 @@ void FFT_radix_2(complex_num* P)
 	if (errno == ENOMEM) return;
 
 	OnButterfly_radix_2(P, N, 0);
+	//OnButterfly_radix_2_loop(P, N, (int)log2(N), 0);
 }
 
 void IFFT_radix_2(complex_num* P)
@@ -394,6 +396,57 @@ static void OnButterfly_radix_2(complex_num* P, int n, int mode)
 		P[i+n/2] = complexSub(P[i], temp);
 		P[i] = complexAdd(P[i], temp);
 	}
+}
+
+static void OnButterfly_radix_2_loop(complex_num* P, int n, int Log2N, int mode)
+{
+	int i, j, k, m;
+	int start;
+	double value;
+	complex_num* Y, temp;
+
+	Y = (complex_num*)malloc((n / 2) * sizeof(complex_num));
+
+	for (i = 0; i < Log2N; i++) {
+		value = pow(2, i + 1);
+
+		if (mode == 0) {
+			for (j = 0; j < (int)(value / 2); j++) {
+				Y[j].Re = cos(j * 2.0 * M_PI / value);
+				Y[j].Im = -sin(j * 2.0 * M_PI / value);
+			}
+		}
+
+		if (mode == 1) {
+			for (j = 0; j < (int)(value / 2); j++) {
+				Y[j].Re = cos(j * 2.0 * M_PI / value);
+				Y[j].Im = sin(j * 2.0 * M_PI / value);
+			}
+		}
+
+		start = 0;
+		
+		for (k = 0;  k < n / (int)value; k++) {
+			for (j = start; j < start + (int)(value / 2); j++) {
+				m = j + (int)(value / 2);
+				temp = complexMul(Y[j - start], P[m]);
+
+				P[m] = complexSub(P[j], temp);
+				P[j] = complexAdd(P[j], temp);
+			}
+			start += (int)value;
+		}
+		
+	}
+
+	if (mode == 1) {
+		for (i = 0; i < n; i++) {
+			P[i].Re /= n;
+			P[i].Im /= n;
+		}
+	}
+
+	free(Y);
 }
 
 static void OnButterfly_radix_4(complex_num* P, int n, int mode)

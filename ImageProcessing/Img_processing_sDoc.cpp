@@ -1053,24 +1053,24 @@ double** CImgprocessingsDoc::OnMaskProcess_s(unsigned char* Target, double **Mas
 }
 
 
-double** CImgprocessingsDoc::OnMaskProcessArr(unsigned char* Target, double Mask[5][5])
+double** CImgprocessingsDoc::OnMaskProcessArr(unsigned char* Target, double Mask[][3])
 {
 	int i, j, n, m;
 	double** tempInputImage, ** tempOutputImage, S = 0.;
 
-	tempInputImage = Image2DMem(m_height + 4, m_width + 4);
+	tempInputImage = Image2DMem(m_height + 2, m_width + 2);
 	tempOutputImage = Image2DMem(m_height, m_width);
 
 	for (i = 0; i < m_height; i++) {
 		for (j = 0; j < m_width; j++) {
-			tempInputImage[i + 2][j + 2] = (double)Target[i * m_width + j];
+			tempInputImage[i + 1][j + 1] = (double)Target[i * m_width + j];
 		}
 	}
 
 	for (i = 0; i < m_height; i++) {
 		for (j = 0; j < m_width; j++) {
-			for (n = 0; n < 5; n++) {
-				for (m = 0; m < 5; m++) {
+			for (n = 0; n < 3; n++) {
+				for (m = 0; m < 3; m++) {
 					S += Mask[n][m] * tempInputImage[i + n][j + m];
 				}
 			}
@@ -3186,7 +3186,7 @@ void CImgprocessingsDoc::OnFrameSum()
 				if (a * m_InputImage[i] + (1 - a) * temp[i] > 255)
 					m_OutputImage[i] = 255;
 				else
-					m_OutputImage[i] = a * m_InputImage[i] + (1 - a) * temp[i];
+					m_OutputImage[i] = (unsigned char)(a * m_InputImage[i] + (1 - a) * temp[i]);
 			}
 		}
 		else {
@@ -3627,7 +3627,7 @@ void CImgprocessingsDoc::OnBinaryDilation(int num, BOOL useDlg, BOOL useMaskInpu
 void CImgprocessingsDoc::OnBinarySkeleton()
 {
 	int i, j, num = 0, topItemNum = 10, check = 0;
-	double** tempOutput, **tempErosion, **tempOpen;
+	double** tempOutput;
 	double Mask[3][3] = { {255., 255., 255.}, {255., 255., 255.}, {255., 255., 255.} };
 
 	m_Re_height = m_height;
@@ -3812,5 +3812,563 @@ void CImgprocessingsDoc::OnGrayDilation()
 			}
 			m_OutputImage[i * m_Re_width + j] = (unsigned char)MAX;
 		}
+	}
+}
+
+
+void CImgprocessingsDoc::OnLowPassFilter()
+{
+	int i, j;
+	double LPF[3][3] = { {1. / 9., 1. / 9., 1. / 9.},{1. / 9., 1. / 9., 1. / 9.} ,{1. / 9., 1. / 9., 1. / 9.} };
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+
+	m_tempImage = OnMaskProcessArr(m_InputImage, LPF);
+
+	for (i = 0; i < m_Re_height; i++) {
+		for (j = 0; j < m_Re_width; j++) {
+			if (m_tempImage[i][j] > 255.)
+				m_OutputImage[i * m_Re_width + j] = 255;
+			else if (m_tempImage[i][j] < 0)
+				m_OutputImage[i * m_Re_width + j] = 0;
+			else
+				m_OutputImage[i * m_Re_width + j] = (unsigned char)m_tempImage[i][j];
+		}
+	}
+}
+
+
+void CImgprocessingsDoc::OnHighPassFilter()
+{
+	int i, j;
+	double HPF[3][3] = { {-1. / 9., -1. / 9., -1. / 9.},{-1. / 9., 8. / 9., -1. / 9.} ,{-1. / 9., -1. / 9., -1. / 9.} };
+	//double HPF[3][3] = { {-1. / 9., -1. / 9., -1. / 9.},{-1. / 9., A - 1. / 9., -1. / 9.} ,{-1. / 9., -1. / 9., -1. / 9.} };
+	//double HPF[3][3] = { {1,-2,1},{-2,5,-2} ,{1,-2,1} };
+	//double HPF[3][3] = { {0,-1,0},{-1,5,-1},{0,-1,0} };
+	//double HPF[3][3] = { {-1,-1,-1},{-1,9,-1},{-1,-1,-1} };
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+
+	m_tempImage = OnMaskProcessArr(m_InputImage, HPF);
+
+	for (i = 0; i < m_Re_height; i++) {
+		for (j = 0; j < m_Re_width; j++) {
+			if (m_tempImage[i][j] > 255.)
+				m_OutputImage[i * m_Re_width + j] = 255;
+			else if (m_tempImage[i][j] < 0)
+				m_OutputImage[i * m_Re_width + j] = 0;
+			else
+				m_OutputImage[i * m_Re_width + j] = (unsigned char)m_tempImage[i][j];
+		}
+	}
+}
+
+
+void CImgprocessingsDoc::OnMeanFilter()
+{
+	int i, j, n, m;
+	double** tempInputImage, S = 0.;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+
+	tempInputImage = Image2DMem(m_height + 2, m_width + 2);
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			tempInputImage[i + 1][j + 1] = (double)m_InputImage[i * m_width + j];
+		}
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			for (n = 0; n < 3; n++) {
+				for (m = 0; m < 3; m++) {
+					S += tempInputImage[i + n][j + m];
+				}
+			}
+			m_OutputImage[i * m_Re_width + j] = (unsigned char)(S / 9.);
+			S = 0.;
+		}
+	}
+}
+
+
+void CImgprocessingsDoc::OnMedianFilter()
+{
+	int i, j, n, m, h, weight = 0;
+	double** tempInputImage, *Mask;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+	Mask = new double[9 + weight];
+
+	tempInputImage = Image2DMem(m_height + 2, m_width + 2);
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			tempInputImage[i + 1][j + 1] = (double)m_InputImage[i * m_width + j];
+		}
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			for (n = 0; n < 3; n++) {
+				for (m = 0; m < 3; m++) {
+					Mask[n*3+m] = tempInputImage[i + n][j + m];
+				}
+			}
+			for (h = 9; h < 9 + weight; h++) {
+				Mask[h] = tempInputImage[i + 1][j + 1];
+			}
+			OnBubbleSort(Mask, 9+weight);
+			m_OutputImage[i * m_Re_width + j] = (unsigned char)Mask[(9+weight)/2];
+		}
+	}
+}
+
+
+void CImgprocessingsDoc::OnMaxFilter()
+{
+	int i, j, n, m;
+	double** tempInputImage, Mask[9];
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+
+	tempInputImage = Image2DMem(m_height + 2, m_width + 2);
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			tempInputImage[i + 1][j + 1] = (double)m_InputImage[i * m_width + j];
+		}
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			for (n = 0; n < 3; n++) {
+				for (m = 0; m < 3; m++) {
+					Mask[n * 3 + m] = tempInputImage[i + n][j + m];
+				}
+			}
+			OnBubbleSort(Mask, 9);
+			m_OutputImage[i * m_Re_width + j] = (unsigned char)Mask[8];
+		}
+	}
+}
+
+
+void CImgprocessingsDoc::OnMinFilter()
+{
+	int i, j, n, m;
+	double** tempInputImage, Mask[9];
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+
+	tempInputImage = Image2DMem(m_height + 2, m_width + 2);
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			tempInputImage[i + 1][j + 1] = (double)m_InputImage[i * m_width + j];
+		}
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			for (n = 0; n < 3; n++) {
+				for (m = 0; m < 3; m++) {
+					Mask[n * 3 + m] = tempInputImage[i + n][j + m];
+				}
+			}
+			OnBubbleSort(Mask, 9);
+			m_OutputImage[i * m_Re_width + j] = (unsigned char)Mask[0];
+		}
+	}
+}
+
+
+void CImgprocessingsDoc::OnTrackClosedCurve()
+{
+	int i, j;
+	double** edge, ** visited;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+
+	edge = Image2DMem(m_height, m_width);
+	visited = Image2DMem(m_height, m_width);
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			//memset(visited[0], 0, sizeof(double) * m_height * m_width);
+			if (m_InputImage[i * m_width + j] == 255 && visited[i][j] == 0) {
+				visited[i][j] = 2;
+				OnFollowClosedCurve(m_InputImage, visited, edge, 0, i, j);
+				visited[i][j] = 1;
+			}
+		}
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			m_OutputImage[i * m_Re_width + j] = (unsigned char)edge[i][j];
+		}
+	}
+}
+
+
+BOOL CImgprocessingsDoc::OnFollowClosedCurve(unsigned char* Target, double** visited, double** edge, BOOL sbool, int row, int col)
+{
+	int i, j;
+	BOOL tempBool;
+
+	if (sbool != 0) {
+		visited[row][col] = 1;
+	}
+
+	if (sbool == 0)
+		tempBool = 1;
+	else
+		tempBool = 2;
+
+	for (i = -1; i < 2; i++) {
+		if (row + i < 0 || row + i > m_height-1)
+			continue;
+
+		for (j = -1; j < 2; j++) {
+			if (col + j < 0 || col + j > m_width-1)
+				continue;
+
+			if (visited[row+i][col+j] == 2 && sbool == 2) {
+				edge[row][col] = 255.;
+				return TRUE;
+			}
+			else if (Target[(row + i) * m_width + (col + j)] == 255 && visited[row + i][col + j] == 0) {
+				if (OnFollowClosedCurve(Target, visited, edge, tempBool, row + i, col + j)) {
+					edge[row][col] = 255.;
+					return TRUE;
+				}
+			}
+		}
+	}
+
+	return FALSE;
+}
+
+
+void CImgprocessingsDoc::OnFft2d()
+{
+	
+	int i, j, row, col, Log2N, Num, C = 20;
+	Complex* Data;
+
+	unsigned char** temp;
+	double Value, Absol;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+	
+	Num = m_width;
+	Log2N = 0;
+
+	while (Num >= 2) {
+		Num >>= 1;
+		Log2N++;
+	}
+
+	m_tempImage = Image2DMem(m_height, m_width);
+
+	Data = new Complex[m_width];
+
+	m_FFT = new Complex * [m_height];
+	m_FFT[0] = new Complex[m_width*m_height];
+
+	temp = new unsigned char* [m_height];
+	temp[0] = new unsigned char[m_width * m_height];
+
+	for (i = 1; i < m_height; i++) {
+		m_FFT[i] = m_FFT[i - 1] + m_width;
+		temp[i] = temp[i - 1] + m_width;
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			Data[j].Re = (double)m_InputImage[i * m_width + j];
+			Data[j].Im = 0;
+		}
+
+		OnFft1d(Data, m_width, Log2N);
+
+		for (j = 0; j < m_width; j++) {
+			m_FFT[i][j] = Data[j];
+		}
+	}
+
+	free(Data);
+
+	Num = m_height;
+	Log2N = 0;
+
+	while (Num >= 2) {
+		Num >>= 1;
+		Log2N++;
+	}
+
+	Data = new Complex[m_height];
+
+	for (i = 0; i < m_width; i++) {
+		for (j = 0; j < m_height; j++) {
+			Data[j] = m_FFT[j][i];
+		}
+
+		OnFft1d(Data, m_height, Log2N);
+
+		for (j = 0; j < m_height; j++) {
+			m_FFT[j][i] = Data[j];
+		}
+	}
+	
+
+	
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			Value = hypot(m_FFT[i][j].Re, m_FFT[i][j].Im);
+			Absol = C * log(1 + Value);
+
+			if (Absol > 255.0)
+				Absol = 255.0;
+			if (Absol < 0.0)
+				Absol = 0.0;
+
+			m_tempImage[i][j] = Absol;
+		}
+	}
+	
+	for (i = 0; i < m_height; i += m_height / 2) {
+		for (j = 0; j < m_width; j += m_width / 2) {
+			for (row = 0; row < m_height / 2; row++) {
+				for (col = 0; col < m_width / 2; col++) {
+					temp[(m_height / 2 - 1) - row + i][(m_width / 2 - 1) - col + j] = 
+						(unsigned char)m_tempImage[i + row][j + col];
+				}
+			}
+		}
+	}
+	
+	for (i = 0; i < m_Re_height; i++) {
+		for (j = 0; j < m_Re_width; j++) {
+			m_OutputImage[i * m_width + j] = temp[i][j];
+		}
+	}
+
+	free(Data);
+	free(temp[0]);
+	free(temp);
+}
+
+
+void CImgprocessingsDoc::OnFft1d(Complex* X, int N, int Log2N)
+{
+	OnShuffle(X, N, Log2N);
+	OnButterfly(X, N, 0);
+}
+
+
+void CImgprocessingsDoc::OnShuffle(Complex* X, int N, int Log2N)
+{
+	int i;
+	Complex* temp;
+
+	temp = new Complex[N];
+
+	for (i = 0; i < N; i++) {
+		temp[i] = X[OnReverseBitOrder(i, Log2N)];
+	}
+
+	for (i = 0; i < N; i++) {
+		X[i] = temp[i];
+	}
+
+	delete[] temp;
+}
+
+
+void CImgprocessingsDoc::OnButterfly(Complex* X, int N, int mode)
+{
+	if (N == 1)
+		return;
+	int i, s = 1 - 2 * mode;
+	Complex temp;
+
+	OnButterfly(X, N / 2, mode);
+	OnButterfly(X + N / 2, N / 2, mode);
+
+	for (i = 0; i < N / 2; i++)
+	{
+		temp = OnComplexMul(OnTwiddleFactor(N, s * i), X[i + N / 2]);
+
+		X[i + N / 2] = OnComplexSub(X[i], temp);
+		X[i] = OnComplexAdd(X[i], temp);
+	}
+}
+
+
+int CImgprocessingsDoc::OnReverseBitOrder(int index, int Log2N)
+{
+	int i, X, Y;
+
+	Y = 0;
+
+	for (i = 0; i < Log2N; i++) {
+		X = (index & (1 << i)) >> i;
+		Y = (Y << 1) | X;
+	}
+
+	return Y;
+}
+
+
+Complex CImgprocessingsDoc::OnComplexAdd(Complex A, Complex B)
+{
+	Complex res = { A.Re + B.Re, A.Im + B.Im };
+	return res;
+}
+
+
+Complex CImgprocessingsDoc::OnComplexSub(Complex A, Complex B)
+{
+	Complex res = { A.Re - B.Re, A.Im - B.Im };
+	return res;
+}
+
+
+Complex CImgprocessingsDoc::OnComplexMul(Complex A, Complex B)
+{
+	Complex res = { A.Re * B.Re - B.Im * A.Im, A.Re * B.Im + A.Im * B.Re };
+	return res;
+}
+
+
+Complex CImgprocessingsDoc::OnTwiddleFactor(int N, int exp)
+{
+	Complex res = { cos(2 * M_PI / N * exp), -sin(2 * M_PI / N * exp) };
+
+	return res;
+}
+
+
+void CImgprocessingsDoc::OnIfft2d()
+{
+	int i, j, Num, Log2N;
+	Complex* Data;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+
+	Num = m_width;
+	Log2N = 0;
+	while (Num >= 2) // 주파수 변환된 영상의 너비 계산
+	{
+		Num >>= 1;
+		Log2N++;
+	}
+
+	Data = new Complex[m_height];
+	m_IFFT = new Complex * [m_height];
+	m_IFFT[0] = new Complex[m_width * m_height];
+
+	for (i = 1; i < m_height; i++) {
+		m_IFFT[i] = m_FFT[i - 1] + m_width;
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) { // 한 행을 복사
+			Data[j].Re = m_FFT[i][j].Re;
+			Data[j].Im = m_FFT[i][j].Im;
+		}
+
+		OnIfft1d(Data, m_width, Log2N); // 1차원 IFFT
+
+		for (j = 0; j < m_width; j++) {
+			m_IFFT[i][j].Re = Data[j].Re; // 결과 저장
+			m_IFFT[i][j].Im = Data[j].Im;
+		}
+	}
+
+	free(Data);
+
+	Num = m_height;
+	Log2N = 0;
+	while (Num >= 2) // 주파수 변환된 영상의 높이 계산
+	{
+		Num >>= 1;
+		Log2N++;
+	}
+
+	Data = new Complex[m_height];
+
+	for (i = 0; i < m_width; i++) {
+		for (j = 0; j < m_height; j++) {
+			Data[j].Re = m_IFFT[j][i].Re; // 한 열을 복사
+			Data[j].Im = m_IFFT[j][i].Im;
+		}
+
+		OnIfft1d(Data, m_height, Log2N); // 1차원 IFFT       
+
+		for (j = 0; j < m_height; j++) {
+			m_IFFT[j][i].Re = Data[j].Re; // 결과 저장
+			m_IFFT[j][i].Im = Data[j].Im;
+		}
+	}
+
+	for (i = 0; i < m_width; i++) {
+		for (j = 0; j < m_height; j++) {
+			m_OutputImage[i * m_width + j] = (unsigned char)m_IFFT[i][j].Re; // 결과 출력
+		}
+	}
+
+	free(Data);
+}
+
+
+void CImgprocessingsDoc::OnIfft1d(Complex* X, int N, int Log2N)
+{
+	OnShuffle(X, N, Log2N);
+	OnButterfly(X, N, 1);
+
+	for (int i = 0; i < N; i++)
+	{
+		X[i].Re /= N;
+		X[i].Im /= N;
 	}
 }
