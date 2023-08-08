@@ -40,11 +40,12 @@ END_MESSAGE_MAP()
 CImgprocessingsDoc::CImgprocessingsDoc() noexcept
 {
 	// TODO: 여기에 일회성 생성 코드를 추가합니다.
-
+	pDlg = new CWaveletTransformDlg(this);
 }
 
 CImgprocessingsDoc::~CImgprocessingsDoc()
 {
+	delete pDlg;
 }
 
 BOOL CImgprocessingsDoc::OnNewDocument()
@@ -911,7 +912,7 @@ void CImgprocessingsDoc::OnInoutChange()
 }
 
 
-#define MASK_PROCESS_S
+#define MASK_PROCESS_
 #define EMBO_VERSION_1
 void CImgprocessingsDoc::OnEmbossing()
 {
@@ -2933,7 +2934,7 @@ void CImgprocessingsDoc::OnRotation()
 	}
 
 	Radian = (double)degree * M_PI / 180.;
-
+	
 	DecideLen:
 	if (0 <= Radian && Radian <= M_PI/2) {
 		m_Re_height = (int)(m_height * cos(Radian) + m_width * cos(M_PI / 2 - Radian));
@@ -2948,6 +2949,9 @@ void CImgprocessingsDoc::OnRotation()
 		goto DecideLen;
 	}
 	Radian = (double)degree * M_PI / 180.;
+	
+	//m_Re_height = m_height;
+	//m_Re_width = m_width;
 	m_Re_size = m_Re_height * m_Re_width;
 
 	m_OutputImage = (unsigned char*)malloc(sizeof(unsigned char) * m_Re_size);
@@ -4225,7 +4229,7 @@ void CImgprocessingsDoc::OnButterfly(Complex* X, int N, int mode)
 	if (N == 1)
 		return;
 	int i, s = 1 - 2 * mode;
-	Complex temp;
+	Complex temp, I = { 0,-1 };
 
 	OnButterfly(X, N / 2, mode);
 	OnButterfly(X + N / 2, N / 2, mode);
@@ -4235,6 +4239,7 @@ void CImgprocessingsDoc::OnButterfly(Complex* X, int N, int mode)
 		temp = OnComplexMul(OnTwiddleFactor(N, s * i), X[i + N / 2]);
 
 		X[i + N / 2] = OnComplexSub(X[i], temp);
+		
 		X[i] = OnComplexAdd(X[i], temp);
 	}
 }
@@ -4276,7 +4281,7 @@ Complex CImgprocessingsDoc::OnComplexMul(Complex A, Complex B)
 }
 
 
-Complex CImgprocessingsDoc::OnTwiddleFactor(int N, int exp)
+Complex CImgprocessingsDoc::OnTwiddleFactor(double N, double exp)
 {
 	Complex res = { cos(2 * M_PI / N * exp), -sin(2 * M_PI / N * exp) };
 
@@ -4308,7 +4313,7 @@ void CImgprocessingsDoc::OnIfft2d()
 	m_IFFT[0] = new Complex[m_width * m_height];
 
 	for (i = 1; i < m_height; i++) {
-		m_IFFT[i] = m_FFT[i - 1] + m_width;
+		m_IFFT[i] = m_IFFT[i - 1] + m_width;
 	}
 
 	for (i = 0; i < m_height; i++) {
@@ -4353,7 +4358,12 @@ void CImgprocessingsDoc::OnIfft2d()
 
 	for (i = 0; i < m_width; i++) {
 		for (j = 0; j < m_height; j++) {
-			m_OutputImage[i * m_width + j] = (unsigned char)m_IFFT[i][j].Re; // 결과 출력
+			if (m_IFFT[i][j].Re > 255.)
+				m_OutputImage[i * m_width + j] = 255;
+			else if (m_IFFT[i][j].Re < 0)
+				m_OutputImage[i * m_width + j] = 0;
+			else
+				m_OutputImage[i * m_width + j] = (unsigned char)lround(m_IFFT[i][j].Re); // 결과 출력
 		}
 	}
 
@@ -4371,4 +4381,1152 @@ void CImgprocessingsDoc::OnIfft1d(Complex* X, int N, int Log2N)
 		X[i].Re /= N;
 		X[i].Im /= N;
 	}
+}
+
+
+void CImgprocessingsDoc::OnLpfFrequency()
+{
+	int i, j, x, y, row, col;
+	double temp, D, N, Absol, Value, C = 20;
+	double** tempIm;
+	D = 32.;
+	N = 4.;
+
+	m_OutputImageLB = new unsigned char[m_width * m_height];
+	m_OutputImageRB = new unsigned char[m_width * m_height];
+
+	tempIm = Image2DMem(m_height, m_width);
+	m_tempImage = Image2DMem(m_height, m_width);
+
+	OnFft2d();
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			m_OutputImageLB[i * m_width + j] = m_OutputImage[i * m_width + j];
+		}
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			x = i;
+			y = j;
+			if (x > m_height / 2)
+				x -= m_height;
+			if (y > m_width / 2)
+				y -= m_width;
+
+			temp = 1. / (1. + pow(hypot(x, y) / D, 2 * N));
+
+			m_FFT[i][j].Re *= temp;
+			m_FFT[i][j].Im *= temp;
+		}
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			Value = hypot(m_FFT[i][j].Re, m_FFT[i][j].Im);
+			Absol = C * log(1 + Value);
+
+			if (Absol > 255.0)
+				Absol = 255.0;
+			if (Absol < 0.0)
+				Absol = 0.0;
+
+			m_tempImage[i][j] = Absol;
+		}
+	}
+
+	for (i = 0; i < m_height; i += m_height / 2) {
+		for (j = 0; j < m_width; j += m_width / 2) {
+			for (row = 0; row < m_height / 2; row++) {
+				for (col = 0; col < m_width / 2; col++) {
+					tempIm[(m_height / 2 - 1) - row + i][(m_width / 2 - 1) - col + j] =
+						(unsigned char)m_tempImage[i + row][j + col];
+				}
+			}
+		}
+	}
+
+	for (i = 0; i < m_Re_height; i++) {
+		for (j = 0; j < m_Re_width; j++) {
+			m_OutputImageRB[i * m_width + j] = tempIm[i][j];
+		}
+	}
+
+	OnIfft2d();
+
+	free(tempIm[0]);
+	free(tempIm);
+
+	m_printImageBool = TRUE;
+}
+
+
+void CImgprocessingsDoc::OnHpfFrequency()
+{
+	int i, j, x, y, row, col;
+	double temp, D, N, Absol, Value, C = 20;
+	double** tempIm;
+	D = 128.;
+	N = 4.;
+
+	m_OutputImageLB = new unsigned char[m_width * m_height];
+	m_OutputImageRB = new unsigned char[m_width * m_height];
+
+	tempIm = Image2DMem(m_height, m_width);
+	m_tempImage = Image2DMem(m_height, m_width);
+
+	OnFft2d();
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			m_OutputImageLB[i * m_width + j] = m_OutputImage[i * m_width + j];
+		}
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			x = i;
+			y = j;
+			if (x > m_height / 2)
+				x -= m_height;
+			if (y > m_width / 2)
+				y -= m_width;
+
+			temp = 1. / (1. + pow(D / (1+hypot(x, y)), 2 * N));
+
+			m_FFT[i][j].Re *= temp;
+			m_FFT[i][j].Im *= temp;
+		}
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			Value = hypot(m_FFT[i][j].Re, m_FFT[i][j].Im);
+			Absol = C * log(1 + Value);
+
+			if (Absol > 255.0)
+				Absol = 255.0;
+			if (Absol < 0.0)
+				Absol = 0.0;
+
+			m_tempImage[i][j] = Absol;
+		}
+	}
+
+	for (i = 0; i < m_height; i += m_height / 2) {
+		for (j = 0; j < m_width; j += m_width / 2) {
+			for (row = 0; row < m_height / 2; row++) {
+				for (col = 0; col < m_width / 2; col++) {
+					tempIm[(m_height / 2 - 1) - row + i][(m_width / 2 - 1) - col + j] =
+						(unsigned char)m_tempImage[i + row][j + col];
+				}
+			}
+		}
+	}
+
+	for (i = 0; i < m_Re_height; i++) {
+		for (j = 0; j < m_Re_width; j++) {
+			m_OutputImageRB[i * m_width + j] = tempIm[i][j];
+		}
+	}
+
+	OnIfft2d();
+
+	free(tempIm[0]);
+	free(tempIm);
+
+	m_printImageBool = TRUE;
+}
+
+
+void CImgprocessingsDoc::OnBilateral()
+{
+	CConstantDlg dlg;
+
+	int i, j, MaskLen, x, y, row, col;
+	double stdR, similarity;
+	double** GaussianMask, ** tempInputImage, ** tempOutputImage, S = 0., weight = 0.;
+	
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = (unsigned char*)malloc(sizeof(unsigned char) * m_Re_size);
+
+	tempInputImage = Image2DMem(m_height, m_width);
+	tempOutputImage = Image2DMem(m_height, m_width);
+
+	if (dlg.DoModal() == IDOK)
+	{
+		stdR = 30;// 2 * dlg.m_Constant;
+		//MaskLen = (int)(dlg.m_Constant * 8);
+		MaskLen = (int)(dlg.m_Constant * 6);
+
+		if (MaskLen % 2 == 0)
+			MaskLen += 1;
+
+		if (MaskLen < 3)
+			MaskLen = 3;
+
+		GaussianMask = Image2DMem(MaskLen, MaskLen);
+
+		for (i = 0; i <= MaskLen / 2; i++) {
+			x = MaskLen / 2 - i;
+			for (j = 0; j <= MaskLen / 2; j++) {
+				y = -(MaskLen / 2) + j;
+				GaussianMask[i][j] = exp(-((double)(x * x + y * y) / (double)(2 * dlg.m_Constant * dlg.m_Constant))) / (2 * M_PI * dlg.m_Constant * dlg.m_Constant);
+			}
+		}
+
+		for (i = 0; i < MaskLen / 2; i++) {
+			for (j = 1; j <= MaskLen / 2; j++) {
+				GaussianMask[i][MaskLen / 2 + j] = GaussianMask[i][MaskLen / 2 - j];
+				GaussianMask[MaskLen / 2 + i + 1][j - 1] = GaussianMask[MaskLen / 2 - i - 1][j - 1];
+				GaussianMask[MaskLen / 2 + i + 1][MaskLen / 2 + j] = GaussianMask[MaskLen / 2 - i - 1][MaskLen / 2 - j];
+			}
+			GaussianMask[MaskLen / 2][MaskLen / 2 + i + 1] = GaussianMask[MaskLen / 2][MaskLen / 2 - i - 1];
+			GaussianMask[MaskLen / 2 + i + 1][MaskLen / 2] = GaussianMask[MaskLen / 2 - i - 1][MaskLen / 2];
+		}
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			tempInputImage[i][j] = (double)m_InputImage[i * m_width + j];
+		}
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			for (x = 0; x < MaskLen; x++) {
+				row = (i + x - MaskLen / 2);
+				if (row < 0 || row > m_height-1)
+					continue;
+
+				for (y = 0; y < MaskLen; y++) {
+					col = (j + y - MaskLen / 2);
+					if (col < 0 || col > m_width-1)
+						continue;
+
+					similarity = exp(-(pow(tempInputImage[i][j]-tempInputImage[row][col], 2) / (2 * stdR * stdR)));
+					S += GaussianMask[x][y] * tempInputImage[row][col] * similarity;
+					weight += similarity * GaussianMask[x][y];
+				}
+			}
+			tempOutputImage[i][j] = S/weight;
+			S = 0.;
+			weight = 0.;
+		}
+	}
+
+	for (i = 0; i < m_Re_height; i++) {
+		for (j = 0; j < m_Re_width; j++) {
+			if (tempOutputImage[i][j] > 255.)
+				tempOutputImage[i][j] = 255.;
+			else if (tempOutputImage[i][j] < 0.)
+				tempOutputImage[i][j] = 0.;
+		}
+	}
+
+	for (i = 0; i < m_Re_height; i++) {
+		for (j = 0; j < m_Re_width; j++) {
+			m_OutputImage[i * m_Re_width + j] = (unsigned char)(tempOutputImage[i][j]+0.5);
+		}
+	}
+
+	free(tempInputImage[0]);
+	free(tempInputImage);
+	free(tempOutputImage[0]);
+	free(tempOutputImage);
+}
+
+
+void CImgprocessingsDoc::OnMeanFilterSat(int mode, double** Src, double** Dst, int height, int width, int radius)
+{
+	int i, j, UL, UR, BL, BR, divx, divy, r_2Mr = radius/2 - radius;
+	double** SAT, S = 0.;
+
+	if (mode) {
+		SAT = Image2DMem(height, width);
+
+		for (i = 0; i < height; i++) {
+			for (j = 0; j < width; j++) {
+				S += Src[i][j];
+				SAT[i][j] = S;
+			}
+			S = 0.;
+		}
+
+		for (i = 0; i < width; i++) {
+			for (j = 0; j < height; j++) {
+				S += SAT[j][i];
+				SAT[j][i] = S;
+			}
+			S = 0.;
+		}
+
+		for (i = 0; i < height; i++) {
+			for (j = 0; j < width; j++) {
+				UR = i + r_2Mr < 0 ? 0 : SAT[i + r_2Mr][j + radius / 2 >= width ? width - 1 : j + radius / 2];
+
+				BL = j + r_2Mr < 0 ? 0 : SAT[i + radius / 2 >= height ? height - 1 : i + radius / 2][j + r_2Mr];
+
+				UL = j + r_2Mr < 0 || i + r_2Mr < 0 ? 0 : SAT[i + r_2Mr][j + r_2Mr];
+
+				BR = SAT[i + radius / 2 >= height ? height - 1 : i + radius / 2][j + radius / 2 >= width ? width - 1 : j + radius / 2];
+
+				divx = (j + radius / 2 >= width ? width - 1 : j + radius / 2) - (j - radius / 2 < 0 ? 0 : j - radius / 2) + radius % 2;
+
+				divy = (i + radius / 2 >= height ? height - 1 : i + radius / 2) - (i - radius / 2 < 0 ? 0 : i - radius / 2) + radius % 2;
+
+				Dst[i][j] = (double)(BR - UR - BL + UL) / (double)(divx * divy);
+			}
+		}
+	}
+	else
+	{
+		m_Re_height = m_height;
+		m_Re_width = m_width;
+		m_Re_size = m_Re_height * m_Re_width;
+
+		m_OutputImage = (unsigned char*)malloc(sizeof(unsigned char) * m_Re_size);
+		SAT = Image2DMem(m_height, m_width);
+
+		for (i = 0; i < m_height; i++) {
+			for (j = 0; j < m_width; j++) {
+				S += m_InputImage[i * m_width + j];
+				SAT[i][j] = S;
+			}
+			S = 0.;
+		}
+
+		for (i = 0; i < m_width; i++) {
+			for (j = 0; j < m_height; j++) {
+				S += SAT[j][i];
+				SAT[j][i] = S;
+			}
+			S = 0.;
+		}
+
+		for (i = 0; i < m_Re_height; i++) {
+			for (j = 0; j < m_Re_width; j++) {
+				UR = i + r_2Mr < 0 ? 0 : SAT[i + r_2Mr][j + radius / 2 >= m_width ? m_width - 1 : j + radius / 2];
+
+				BL = j + r_2Mr < 0 ? 0 : SAT[i + radius / 2 >= m_height ? m_height - 1 : i + radius / 2][j + r_2Mr];
+
+				UL = j + r_2Mr < 0 || i + r_2Mr < 0 ? 0 : SAT[i + r_2Mr][j + r_2Mr];
+
+				BR = SAT[i + radius / 2 >= m_height ? m_height - 1 : i + radius / 2][j + radius / 2 >= m_width ? m_width - 1 : j + radius / 2];
+
+				divx = (j + radius / 2 >= m_width ? m_width - 1 : j + radius / 2) - (j - radius / 2 < 0 ? 0 : j - radius / 2) + radius % 2;
+
+				divy = (i + radius / 2 >= m_height ? m_height - 1 : i + radius / 2) - (i - radius / 2 < 0 ? 0 : i - radius / 2) + radius % 2;
+
+				m_OutputImage[i * m_Re_width + j] = (unsigned char)((double)(BR - UR - BL + UL) / (double)(divx * divy) + 0.5);
+			}
+		}
+	}
+
+	free(SAT[0]);
+	free(SAT);
+}
+
+
+void CImgprocessingsDoc::OnGuidedFilter()
+{
+	CFile File;
+	CFileDialog OpenDlg(TRUE);
+
+	int i, j, radius = 5;
+	double epsilon = 0.01;
+	double** meanI, ** meanP, ** tempA, ** tempB;
+	unsigned char* temp;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = (unsigned char*)malloc(sizeof(unsigned char) * m_Re_size);
+
+	meanI = Image2DMem(m_height, m_width);
+	meanP = Image2DMem(m_height, m_width);
+	tempA = Image2DMem(m_height, m_width);
+	tempB = Image2DMem(m_height, m_width);
+
+	if (OpenDlg.DoModal() == IDOK) {
+		File.Open(OpenDlg.GetPathName(), CFile::modeRead);
+
+		if (File.GetLength() == (unsigned)m_width * m_height) {
+			temp = new unsigned char[m_size];
+
+			File.Read(temp, m_size);
+			File.Close();
+		}
+		else {
+			AfxMessageBox(L"Image size not matched");
+			return;
+		}
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			meanI[i][j] = temp[i * m_width + j];
+			meanP[i][j] = m_InputImage[i * m_width + j];
+			tempA[i][j] = temp[i * m_width + j] * temp[i * m_width + j];
+			tempB[i][j] = temp[i * m_width + j] * m_InputImage[i * m_width + j];
+		}
+	}
+
+	OnMeanFilterSat(1, meanI, meanI, m_height, m_width, radius);
+	OnMeanFilterSat(1, meanP, meanP, m_height, m_width, radius);
+	OnMeanFilterSat(1, tempA, tempA, m_height, m_width, radius);
+	OnMeanFilterSat(1, tempB, tempB, m_height, m_width, radius);
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			tempA[i][j] = (tempB[i][j] - meanI[i][j] * meanP[i][j]) / (tempA[i][j] - meanI[i][j] * meanI[i][j] + epsilon);
+			tempB[i][j] = meanP[i][j] - tempA[i][j] * meanI[i][j];
+		}
+	}
+
+	free(meanI[0]);
+	free(meanI);
+	free(meanP[0]);
+	free(meanP);
+
+	OnMeanFilterSat(1, tempA, tempA, m_height, m_width, radius);
+	OnMeanFilterSat(1, tempB, tempB, m_height, m_width, radius);
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			if (tempA[i][j] * (double)temp[i * m_width + j] + tempB[i][j] > 255.)
+				m_OutputImage[i * m_Re_width + j] = 255;
+			else if(tempA[i][j] * (double)temp[i * m_width + j] + tempB[i][j] < 0.)
+				m_OutputImage[i * m_Re_width + j] = 0;
+			else
+				m_OutputImage[i * m_Re_width + j] = (unsigned char)(tempA[i][j] * (double)temp[i * m_width + j] + tempB[i][j] + 0.5);
+		}
+	}
+
+	free(tempA[0]);
+	free(tempA);
+	free(tempB[0]);
+	free(tempB);
+	free(temp);
+}
+
+
+void CImgprocessingsDoc::OnDct()
+{
+	
+	int i, j, Log2N, Num, C = 5;
+	Complex* Data;
+
+	double Value, Absol, Scale;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+
+	Num = m_width;
+	Log2N = 0;
+
+	while (Num >= 2) {
+		Num >>= 1;
+		Log2N++;
+	}
+
+	m_tempImage = Image2DMem(m_height, m_width);
+
+	Data = new Complex[m_width];
+
+	m_DCT = new double * [m_height];
+	m_DCT[0] = new double[m_width * m_height];
+
+	for (i = 1; i < m_height; i++) {
+		m_DCT[i] = m_DCT[i - 1] + m_width;
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width/2; j++) {
+			Data[j].Re = (double)m_InputImage[i * m_width + 2*j];
+			Data[j].Im = 0;
+			Data[m_width-1-j].Re = (double)m_InputImage[i * m_width + 2 * j + 1];
+			Data[m_width - 1 - j].Im = 0;
+		}
+
+		OnFft1d(Data, m_width, Log2N);
+
+		for (j = 0; j < m_width; j++) {
+			if (j == 0)
+				Scale = sqrt(1. / (double)m_width);
+			else
+				Scale = sqrt(2. / (double)m_width);
+			m_DCT[i][j] = Scale * OnComplexMul(Data[j], OnTwiddleFactor(2*m_width, j / 2.)).Re;
+		}
+	}
+
+	free(Data);
+
+	Num = m_height;
+	Log2N = 0;
+
+	while (Num >= 2) {
+		Num >>= 1;
+		Log2N++;
+	}
+
+	Data = new Complex[m_height];
+
+	for (i = 0; i < m_width; i++) {
+		for (j = 0; j < m_height/2; j++) {
+			Data[j].Re = m_DCT[2*j][i];
+			Data[j].Im = 0;
+			Data[m_height-1-j].Re = m_DCT[2*j+1][i];
+			Data[m_height-1-j].Im = 0;
+		}
+
+		OnFft1d(Data, m_height, Log2N);
+
+		for (j = 0; j < m_height; j++) {
+			if (j == 0)
+				Scale = sqrt(1. / (double)m_width);
+			else
+				Scale = sqrt(2. / (double)m_width);
+			m_DCT[j][i] = Scale * OnComplexMul(Data[j], OnTwiddleFactor(2 * m_width, j / 2.)).Re;
+		}
+	}
+
+
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			Value = m_DCT[i][j];
+			//Absol = C * log(1 + Value);
+			Absol = Value;
+
+			if (Absol > 255.0)
+				Absol = 255.0;
+			if (Absol < 0.0)
+				Absol = 0.0;
+
+			m_tempImage[i][j] = Absol;
+		}
+	}
+
+	for (i = 0; i < m_Re_height; i++) {
+		for (j = 0; j < m_Re_width; j++) {
+			m_OutputImage[i * m_width + j] = m_tempImage[i][j];
+		}
+	}
+
+	free(Data);
+	
+
+	
+}
+
+
+void CImgprocessingsDoc::OnIdct()
+{
+	
+	int i, j, Num, Log2N;
+	double Scale;
+	Complex* Data;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+
+	Data = new Complex[m_width];
+	m_IDCT = new double* [m_height];
+	m_IDCT[0] = new double[m_width * m_height];
+
+	for (i = 1; i < m_height; i++) {
+		m_IDCT[i] = m_IDCT[i - 1] + m_width;
+	}
+
+
+	Num = m_width;
+	Log2N = 0;
+	while (Num >= 2) 
+	{
+		Num >>= 1;
+		Log2N++;
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) { 
+			if (j == 0)
+				Scale = sqrt(1. / (double)m_width);
+			else
+				Scale = sqrt(2. / (double)m_width);
+			Data[j].Re = Scale * m_DCT[i][j];
+			Data[j].Im = 0;
+			Data[j] = OnComplexMul(Data[j], OnTwiddleFactor(2. * m_width, j / 2.));
+		}
+
+		OnFft1d(Data, m_width, Log2N); 
+
+		for (j = 0; j < m_width/2; j++) {
+			m_IDCT[i][2 * j] = Data[j].Re; 
+			m_IDCT[i][2 * j + 1] = Data[m_width-1-j].Re; 
+		}
+	}
+
+	free(Data);
+
+	Num = m_height;
+	Log2N = 0;
+	while (Num >= 2) 
+	{
+		Num >>= 1;
+		Log2N++;
+	}
+
+	Data = new Complex[m_height];
+
+	for (i = 0; i < m_width; i++) {
+		for (j = 0; j < m_height; j++) {
+			if (j == 0)
+				Scale = sqrt(1. / (double)m_width);
+			else
+				Scale = sqrt(2. / (double)m_width);
+			Data[j].Re = Scale * m_IDCT[j][i];
+			Data[j].Im = 0;
+			Data[j] = OnComplexMul(Data[j], OnTwiddleFactor(2 * m_height, j / 2.));
+		}
+
+		OnFft1d(Data, m_height, Log2N);        
+
+		for (j = 0; j < m_height/2; j++) {
+			m_IDCT[2 * j][i] = Data[j].Re;
+			m_IDCT[2 * j + 1][i] = Data[m_height - 1 - j].Re;
+		}
+	}
+
+	for (i = 0; i < m_width; i++) {
+		for (j = 0; j < m_height; j++) {
+			if (m_IDCT[i][j] > 255.)
+				m_OutputImage[i * m_width + j] = 255;
+			else if (m_IDCT[i][j] < 0)
+				m_OutputImage[i * m_width + j] = 0;
+			else
+				m_OutputImage[i * m_width + j] = (unsigned char)(m_IDCT[i][j]+0.5); 
+		}
+	}
+
+	free(Data);
+}
+
+
+void CImgprocessingsDoc::OnWavletTransform()
+{
+	if (pDlg->GetSafeHwnd() == NULL)
+		pDlg->Create(IDD_DIALOG7);
+
+	pDlg->ShowWindow(SW_SHOW);
+}
+
+
+void CImgprocessingsDoc::OnWaveletEncode()
+{	
+	if (m_Level <= 0 || (pow(2, m_Level + 3) > (double)m_width) || (pow(2, m_Level + 3) > (double)m_height)) {
+		AfxMessageBox(L"Not Support decomposition level");
+		return;
+	}
+
+	int i, j, k, width, height;
+	double* m_Conv1, * m_Conv2, * m_Conv3, * m_Conv4;
+	double* m_Down1, * m_Down2, * m_Down3, * m_Down4;
+	double* m_Hor, * m_Ver1, * m_Ver2;
+	double** m_L, ** m_H, ** m_LL, ** m_LH, ** m_HL, ** m_HH, ** m_SLL, ** m_SLH, ** m_SHL, ** m_SHH;
+
+	m_tempInput = Image2DMem(m_height, m_width);
+	m_tempOutput = Image2DMem(m_height, m_width);
+	m_ArrangeImage = OnMem2DAllocUnsigned(m_height, m_width);
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			m_tempInput[i][j] = (double)m_InputImage[i * m_width + j];
+		}
+	}
+
+	OnFilterTapGen();
+
+	m_FilterH0 = new double[m_FilterTap];
+	m_FilterH1 = new double[m_FilterTap];
+	m_FilterG0 = new double[m_FilterTap];
+	m_FilterG1 = new double[m_FilterTap];
+
+	OnFilterGen(m_FilterH0, m_FilterH1, m_FilterG0, m_FilterG1);
+
+	width = m_width;
+	height = m_height;
+
+	for (k = 0; k < m_Level; k++) {
+		m_L = Image2DMem(height, width/2);
+		m_H = Image2DMem(height, width/2);
+		m_LL = Image2DMem(height/2, width/2);
+		m_LH = Image2DMem(height/2, width/2);
+		m_HL = Image2DMem(height/2, width/2);
+		m_HH = Image2DMem(height/2, width/2);
+
+		m_Hor = new double[width];
+
+		for (i = 0; i < height; i++) {
+			for (j = 0; j < width; j++) {
+				m_Hor[j] = m_tempInput[i][j];
+			}
+
+			m_Conv1 = OnConvolution(m_Hor, m_FilterH0, width, 1);
+			m_Conv2 = OnConvolution(m_Hor, m_FilterH1, width, 1);
+
+			m_Down1 = OnWaveletDownSampling(m_Conv1, width);
+			m_Down2 = OnWaveletDownSampling(m_Conv2, width);
+
+			for (j = 0; j < width / 2; j++) {
+				m_L[i][j] = m_Down1[j];
+				m_H[i][j] = m_Down2[j];
+			}
+		}
+
+		m_Ver1 = new double[height];
+		m_Ver2 = new double[height];
+
+		for (i = 0; i < width / 2; i++) {
+			for (j = 0; j < height; j++) {
+				m_Ver1[j] = m_L[j][i];
+				m_Ver2[j] = m_H[j][i];
+			}
+
+			m_Conv1 = OnConvolution(m_Ver1, m_FilterH0, height, 1);
+			m_Conv2 = OnConvolution(m_Ver1, m_FilterH1, height, 1);
+			m_Conv3 = OnConvolution(m_Ver2, m_FilterH0, height, 1);
+			m_Conv4 = OnConvolution(m_Ver2, m_FilterH1, height, 1);
+
+			m_Down1 = OnWaveletDownSampling(m_Conv1, height);
+			m_Down2 = OnWaveletDownSampling(m_Conv2, height);
+			m_Down3 = OnWaveletDownSampling(m_Conv3, height);
+			m_Down4 = OnWaveletDownSampling(m_Conv4, height);
+
+			for (j = 0; j < height / 2; j++) {
+				m_LL[j][i] = m_Down1[j];
+				m_LH[j][i] = m_Down2[j];
+				m_HL[j][i] = m_Down3[j];
+				m_HH[j][i] = m_Down4[j];
+			}
+		}
+
+		m_SLL = OnWaveletScale(m_LL, height / 2, width / 2);
+		m_SLH = OnWaveletScale(m_LH, height / 2, width / 2);
+		m_SHL = OnWaveletScale(m_HL, height / 2, width / 2);
+		m_SHH = OnWaveletScale(m_HH, height / 2, width / 2);
+
+		for (i = 0; i < height / 2; i++) {
+			for (j = 0; j < width / 2; j++) {
+				m_tempOutput[i][j] = m_LL[i][j];
+				m_tempOutput[i][j+(width/2)] = m_HL[i][j];
+				m_tempOutput[i+(height/2)][j] = m_LH[i][j];
+				m_tempOutput[i+(height/2)][j+(width/2)] = m_HH[i][j];
+
+				m_ArrangeImage[i][j] = (unsigned char)m_SLL[i][j];
+				m_ArrangeImage[i][j+(width/2)] = (unsigned char)m_SHL[i][j];
+				m_ArrangeImage[i+(height/2)][j] = (unsigned char)m_SLH[i][j];
+				m_ArrangeImage[i+(height/2)][j+(width/2)] = (unsigned char)m_SHH[i][j];
+			}
+		}
+
+		width /= 2;
+		height /= 2;
+
+		free(m_tempInput[0]);
+		free(m_tempInput);
+
+		m_tempInput = Image2DMem(height, width);
+
+		for (i = 0; i < height; i++) {
+			for (j = 0; j < width; j++) {
+				m_tempInput[i][j] = m_LL[i][j];
+			}
+		}
+		
+		#pragma region free
+		free(m_Hor);
+		free(m_Ver1);
+		free(m_Ver2);
+		free(m_Conv1);
+		free(m_Conv2);
+		free(m_Conv3);
+		free(m_Conv4);
+		free(m_Down1);
+		free(m_Down2);
+		free(m_Down3);
+		free(m_Down4);
+		free(m_L[0]);
+		free(m_H[0]);
+		free(m_LL[0]);
+		free(m_LH[0]);
+		free(m_HL[0]);
+		free(m_HH[0]);
+		free(m_SLL[0]);
+		free(m_SLH[0]);
+		free(m_SHL[0]);
+		free(m_SHH[0]);
+		free(m_L);
+		free(m_H);
+		free(m_LL);
+		free(m_LH);
+		free(m_HL);
+		free(m_HH);
+		free(m_SLL);
+		free(m_SLH);
+		free(m_SHL);
+		free(m_SHH);
+		#pragma endregion
+		
+	}
+
+
+	UpdateAllViews(NULL);
+	
+}
+
+
+void CImgprocessingsDoc::OnFilterTapGen()
+{
+	switch (pDlg->m_FilterCheck)
+	{
+	case 0: m_FilterTap = 2;
+		break;
+	case 1: m_FilterTap = 4;
+		break;
+	case 2: m_FilterTap = 6;
+		break;
+	case 3: m_FilterTap = 8;
+		break;
+	default: AfxMessageBox(L"Wrong Filter Tap");
+		break;
+	}
+}
+
+
+void CImgprocessingsDoc::OnFilterGen(double* m_H0, double* m_H1, double* m_G0, double* m_G1)
+{
+	int i;
+	switch (m_FilterTap)
+	{
+	case 2:
+		m_H0[0] = 0.70710678118655;
+		m_H0[1] = 0.70710678118655;
+		break;
+	case 4:
+		m_H0[0] = -0.12940952255092;
+		m_H0[1] = 0.22414386804186;
+		m_H0[2] = 0.83651630373747;
+		m_H0[3] = 0.48296291314469;
+		break;
+	case 6:
+		m_H0[0] = 0.03522629188210;
+		m_H0[1] = -0.08544127388224;
+		m_H0[2] = -0.13501102001039;
+		m_H0[3] = 0.45987750211933;
+		m_H0[4] = 0.80689150931334;
+		m_H0[5] = 0.33267055295096;
+		break;
+	case 8:
+		m_H0[0] = -0.01059740178500;
+		m_H0[1] = 0.03288301166698;
+		m_H0[2] = 0.03084138183599;
+		m_H0[3] = -0.18703481171888;
+		m_H0[4] = -0.02798376941698;
+		m_H0[5] = 0.63088076792959;
+		m_H0[6] = 0.71484657055254;
+		m_H0[7] = 0.23037781330886;
+		break;
+	default:
+		AfxMessageBox(L"Wrong Filter");
+		return;
+	}
+
+	// H0 필터 계수를 이용해, H1, G0, G1 필터 계수 생성
+	for (i = 0; i < m_FilterTap; i++)
+		m_H1[i] = pow(-1, i + 1) * m_H0[m_FilterTap - i - 1];
+
+	for (i = 0; i < m_FilterTap; i++)
+		m_G0[i] = m_H0[m_FilterTap - i - 1];
+
+	for (i = 0; i < m_FilterTap; i++)
+		m_G1[i] = pow(-1, i) * m_H0[i];
+}
+
+
+double* CImgprocessingsDoc::OnWaveletDownSampling(double* m_Target, int size)
+{
+	int i;
+	double* m_temp;
+
+	m_temp = new double[size / 2];
+
+	for (i = 0; i < size / 2; i++) {
+		m_temp[i] = m_Target[2 * i];
+	}
+
+	return m_temp;
+}
+
+
+double* CImgprocessingsDoc::OnConvolution(double* m_Target, double* m_Filter, int size, int mode)
+{
+	
+	int i, j;
+	double* m_temp, * m_tempConv;
+	double m_sum = 0.;
+
+	m_temp = new double[size + m_FilterTap - 1];
+	m_tempConv = new double[size];
+
+	switch (mode) {
+	case 1: 
+		for (i = 0; i < size; i++) {
+			m_temp[i] = m_Target[i];
+		}
+
+		for (i = 0; i < m_FilterTap - 1; i++) {
+			m_temp[size + i] = m_Target[i];
+		}
+
+		break;
+	case 2:
+		for (i = 0; i < m_FilterTap - 1; i++) {
+			m_temp[i] = m_Target[size - m_FilterTap + 1 + i];
+		}
+
+		for (i = m_FilterTap - 1; i < size + m_FilterTap - 1; i++) {
+			m_temp[i] = m_Target[i - m_FilterTap + 1];
+		}
+
+		break; 
+	}
+	
+	for (i = 0; i < size; i++) {
+		for (j = 0; j < m_FilterTap; j++) {
+			m_sum += (m_temp[j + i] * m_Filter[m_FilterTap - 1 - j]);
+		}
+
+		m_tempConv[i] = m_sum;
+		m_sum = 0.;
+	}
+
+	free(m_temp);
+
+	return m_tempConv;
+	
+}
+
+
+unsigned char** CImgprocessingsDoc::OnMem2DAllocUnsigned(int height, int width)
+{
+	int i;
+	unsigned char** temp;
+
+	temp = (unsigned char**)malloc(sizeof(unsigned char*) * height);
+	temp[0] = (unsigned char*)calloc((size_t)height * width, sizeof(unsigned char));
+
+	for (i = 1; i < height; i++) {
+		temp[i] = temp[i - 1] + width;
+	}
+
+	return temp;
+}
+
+
+double** CImgprocessingsDoc::OnWaveletScale(double** m_Target, int height, int width)
+{
+	int i, j;
+	double min, max;
+	double** temp;
+
+	temp = Image2DMem(height, width);
+
+	min = max = m_Target[0][0];
+
+	for (i = 0; i < height; i++) {
+		for (j = 0; j < width; j++) {
+			if (m_Target[i][j] < min) {
+				min = m_Target[i][j];
+			}
+			else if (m_Target[i][j] > max) {
+				max = m_Target[i][j];
+			}
+		}
+	}
+
+	for (i = 0; i < height; i++) {
+		for (j = 0; j < width; j++) {
+			temp[i][j] = (m_Target[i][j] - min) * (255. / (max = min));
+		}
+	}
+
+	return temp;
+}
+
+
+void CImgprocessingsDoc::OnWaveletDecode()
+{
+	int i, j, k;
+	int width, height;
+	double* tempLL, * tempLH, * tempHL, * tempHH, * tempL, * tempH;
+	double** L, ** H;
+	double* Up1, * Up2, * Up3, * Up4;
+	double* Conv1, * Conv2, * Conv3, * Conv4;
+	double** R;
+
+	width = m_width / (int)(pow(2, m_Level));
+	height = m_height / (int)(pow(2, m_Level));
+
+	m_Recon = new double[m_width * m_height];
+
+	for (k = m_Level; k > 0; k--) {
+		if (width > m_width || height > m_height) { // 분해 종료
+			return;
+		}
+
+		tempLL = new double[height];
+		tempLH = new double[height];
+		tempHL = new double[height];
+		tempHH = new double[height];
+
+		L = Image2DMem(height * 2, width);
+		H = Image2DMem(height * 2, width);
+
+		tempL = new double[width];
+		tempH = new double[width];
+
+		R = Image2DMem(height * 2, width * 2);
+
+		for (i = 0; i < width; i++) {
+			for (j = 0; j < height; j++) { // 정렬영상에서 처리하고자 하는 열을 분리
+				tempLL[j] = m_tempOutput[j][i];
+				tempLH[j] = m_tempOutput[j + height][i];
+				tempHL[j] = m_tempOutput[j][i + width];
+				tempHH[j] = m_tempOutput[j + height][i + width];
+			}
+			
+			Up1 = OnWaveletUpSampling(tempLL, height); // 업 샘플링
+			Up2 = OnWaveletUpSampling(tempLH, height);
+			Up3 = OnWaveletUpSampling(tempHL, height);
+			Up4 = OnWaveletUpSampling(tempHH, height);
+
+			Conv1 = OnConvolution(Up1, m_FilterG0, height * 2, 2); // Convolution 연산
+			Conv2 = OnConvolution(Up2, m_FilterG1, height * 2, 2);
+			Conv3 = OnConvolution(Up3, m_FilterG0, height * 2, 2);
+			Conv4 = OnConvolution(Up4, m_FilterG1, height * 2, 2);
+
+			for (j = 0; j < height * 2; j++) {
+				L[j][i] = Conv1[j] + Conv2[j];
+				H[j][i] = Conv3[j] + Conv4[j];
+			}
+		}
+
+		for (i = 0; i < height * 2; i++) {
+			for (j = 0; j < width; j++) {
+				tempL[j] = L[i][j]; // 횡 데이터 분리
+				tempH[j] = H[i][j];
+			}
+
+
+			Up1 = OnWaveletUpSampling(tempL, width); // 업 샘플링
+			Up2 = OnWaveletUpSampling(tempH, width);
+
+			Conv1 = OnConvolution(Up1, m_FilterG0, width * 2, 2); //Convolution 연산
+			Conv2 = OnConvolution(Up2, m_FilterG1, width * 2, 2);
+
+			for (j = 0; j < width * 2; j++) {
+				R[i][j] = Conv1[j] + Conv2[j];
+			}
+		}
+
+		for (i = 0; i < height * 2; i++) {
+			for (j = 0; j < width * 2; j++) {
+				m_tempOutput[i][j] = R[i][j]; // 복원 데이터를 다시 정렬
+			}
+		}
+		height = height * 2; // 영상의 크기를 두배 확장
+		width = width * 2;
+
+	}
+
+	m_Re_width = m_width;
+	m_Re_height = m_height;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			m_Recon[i * m_width + j] = R[i][j];
+			m_OutputImage[i * m_width + j] = (unsigned char)R[i][j]; // 최종 복원된 결과를 출력
+		}
+	}
+
+	UpdateAllViews(NULL);
+
+	// 메모리 해제
+	delete[] tempLL, tempLH, tempHL, tempHH, tempL, tempH;
+	delete[] Up1, Up2, Up3, Up4;
+	delete[] Conv1, Conv2, Conv3, Conv4;
+
+	free(L[0]); free(H[0]); free(R[0]);
+	free(L); free(H); free(R);
+}
+
+
+double* CImgprocessingsDoc::OnWaveletUpSampling(double* m_Target, int size)
+{
+	// 업 샘플링을 위한 함수
+	int i;
+	double* m_temp;
+
+	m_temp = new double[size * 2];
+
+	for (i = 0; i < size * 2; i++)
+		m_temp[i] = 0.0; //초기화
+
+	for (i = 0; i < size; i++)
+		m_temp[2 * i] = m_Target[i]; // 업샘플링 처리
+
+	return m_temp;
+}
+
+
+void CImgprocessingsDoc::OnSNR()
+{
+	double OrgSum, ErrSum, MeanErr, MeanOrg;
+	int i;
+
+	OrgSum = 0.0;
+	ErrSum = 0.0;
+
+	// calculate mean squared error
+	for (i = 0; i < m_size; i++) {
+		// 에러의 에너지 계산
+		ErrSum += ((double)m_InputImage[i] - m_Recon[i]) * ((double)m_InputImage[i] - m_Recon[i]);
+	}
+	MeanErr = ErrSum / m_size; // 에러 에너지 평균
+
+
+	for (i = 0; i < m_size; i++) {
+		// 신호의 에너지 계산
+		OrgSum += ((double)m_InputImage[i]) * ((double)m_InputImage[i]);
+	}
+	MeanOrg = OrgSum / m_size; // 신호 에너지 평균
+
+	pDlg->m_Error = (float)MeanErr; // 에러 출력
+	pDlg->m_SNR = (float)(10 * (double)log10(MeanOrg / MeanErr)); // 신호대 잡음비 계산
 }
