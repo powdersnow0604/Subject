@@ -5135,10 +5135,10 @@ void CImgprocessingsDoc::OnWaveletEncode()
 				m_tempOutput[i+(height/2)][j] = m_LH[i][j];
 				m_tempOutput[i+(height/2)][j+(width/2)] = m_HH[i][j];
 
-				m_ArrangeImage[i][j] = (unsigned char)m_SLL[i][j];
-				m_ArrangeImage[i][j+(width/2)] = (unsigned char)m_SHL[i][j];
-				m_ArrangeImage[i+(height/2)][j] = (unsigned char)m_SLH[i][j];
-				m_ArrangeImage[i+(height/2)][j+(width/2)] = (unsigned char)m_SHH[i][j];
+				m_ArrangeImage[i][j] = m_SLL[i][j];
+				m_ArrangeImage[i][j + (width / 2)] = m_SHL[i][j];
+				m_ArrangeImage[i + (height / 2)][j] = m_SLH[i][j];
+				m_ArrangeImage[i + (height / 2)][j + (width / 2)] = m_SHH[i][j];
 			}
 		}
 
@@ -5192,9 +5192,7 @@ void CImgprocessingsDoc::OnWaveletEncode()
 		
 	}
 
-
-	UpdateAllViews(NULL);
-	
+	UpdateAllViews(NULL);	
 }
 
 
@@ -5283,7 +5281,6 @@ double* CImgprocessingsDoc::OnWaveletDownSampling(double* m_Target, int size)
 
 double* CImgprocessingsDoc::OnConvolution(double* m_Target, double* m_Filter, int size, int mode)
 {
-	
 	int i, j;
 	double* m_temp, * m_tempConv;
 	double m_sum = 0.;
@@ -5326,7 +5323,6 @@ double* CImgprocessingsDoc::OnConvolution(double* m_Target, double* m_Filter, in
 	free(m_temp);
 
 	return m_tempConv;
-	
 }
 
 
@@ -5369,7 +5365,7 @@ double** CImgprocessingsDoc::OnWaveletScale(double** m_Target, int height, int w
 
 	for (i = 0; i < height; i++) {
 		for (j = 0; j < width; j++) {
-			temp[i][j] = (m_Target[i][j] - min) * (255. / (max = min));
+			temp[i][j] = (m_Target[i][j] - min) * (255. / (max - min));
 		}
 	}
 
