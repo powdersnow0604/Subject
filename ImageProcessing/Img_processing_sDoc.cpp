@@ -5135,10 +5135,10 @@ void CImgprocessingsDoc::OnWaveletEncode()
 				m_tempOutput[i+(height/2)][j] = m_LH[i][j];
 				m_tempOutput[i+(height/2)][j+(width/2)] = m_HH[i][j];
 
-				m_ArrangeImage[i][j] = m_SLL[i][j];
-				m_ArrangeImage[i][j + (width / 2)] = m_SHL[i][j];
-				m_ArrangeImage[i + (height / 2)][j] = m_SLH[i][j];
-				m_ArrangeImage[i + (height / 2)][j + (width / 2)] = m_SHH[i][j];
+				m_ArrangeImage[i][j] = (unsigned char)m_SLL[i][j];
+				m_ArrangeImage[i][j + (width / 2)] = (unsigned char)m_SHL[i][j];
+				m_ArrangeImage[i + (height / 2)][j] = (unsigned char)m_SLH[i][j];
+				m_ArrangeImage[i + (height / 2)][j + (width / 2)] = (unsigned char)m_SHH[i][j];
 			}
 		}
 
