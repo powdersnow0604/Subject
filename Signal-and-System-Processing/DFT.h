@@ -4,6 +4,7 @@
 #include "complex_num.h"
 #include "factorization.h"
 #include "plot.h"
+#include "mymath.h"
 
 void DFT_1d(complex_num* X);
 double* calcAmplitude(complex_num* X);
