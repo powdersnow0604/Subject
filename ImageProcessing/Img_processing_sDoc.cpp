@@ -173,6 +173,10 @@ BOOL CImgprocessingsDoc::OnOpenDocument(LPCTSTR lpszPathName)
 		m_height = 64;
 		m_width = 64;
 	}
+	else if (File.GetLength() == (unsigned long long)(340 * 300)) {
+		m_height = 340;
+		m_width = 300;
+	}
 	else {
 		AfxMessageBox((LPCTSTR)L"Not Support Image Size");
 		return 0;
@@ -1545,8 +1549,8 @@ void CImgprocessingsDoc::OnHomogenOperator()
 			max = 0.;
 			for (n = 0; n < 3; n++) {
 				for (m = 0; m < 3; m++) {
-					if (abs(m_tempImage[i + 1][j + 1] - m_tempImage[i + n][j + m]) >= max) {
-						max = abs(m_tempImage[i + 1][j + 1] - m_tempImage[i + n][j + m]);
+					if (fabs(m_tempImage[i + 1][j + 1] - m_tempImage[i + n][j + m]) >= max) {
+						max = fabs(m_tempImage[i + 1][j + 1] - m_tempImage[i + n][j + m]);
 					}
 				}
 			}
@@ -2525,7 +2529,7 @@ void CImgprocessingsDoc::OnBicubic()
 
 double CImgprocessingsDoc::OnBiCubicParam(double value)
 {
-	double ab = abs(value);
+	double ab = fabs(value);
 	double a = -1.;
 
 	if (ab < 1) {
@@ -2609,7 +2613,7 @@ void CImgprocessingsDoc::OnBSpline()
 
 double CImgprocessingsDoc::OnBSplineParam(double value)
 {
-	double ab = abs(value);
+	double ab = fabs(value);
 
 	if (ab < 1) {
 		return pow(ab, 3.) / 2 - pow(ab, 2.) + 2./3.;
@@ -3009,20 +3013,18 @@ void CImgprocessingsDoc::OnWarping()
 {
 	int i, j, k, pointx = m_width / 2, pointy = m_height / 2;
 	int pointWx = 64, pointWy = 64, X, Y;
-	double u, h, d, weight, t_x, t_y, totalWeight, srcx, srcy, temp , a = 0.001, b = 2.0, p = 0.75;
+	int x1, x2, y1, y2;
+	int src_x1, src_x2, src_y1, src_y2;
+	double u, h, d, weight, t_x, t_y, totalWeight, srcx, srcy , Value, a = 0.001, b = 2.0, p = 0.75; 
+	double src_line_length, dest_line_length;
 
 	typedef struct {
-		int Lx;
-		int Ly;
-		int L1x;
-		int L1y;
+		int Px;
+		int Py;
+		int Qx;
+		int Qy;
 	}cntrLine;
 
-	/*
-	FILE* file;
-	fopen_s(&file, "C:\\Users\\darak\\OneDrive\\Desktop\\check.txt", "wb+");
-	if (file == (FILE*)0) return;
-	*/
 
 	m_Re_height = m_height;
 	m_Re_width = m_width;
@@ -3030,102 +3032,56 @@ void CImgprocessingsDoc::OnWarping()
 
 	m_OutputImage = (unsigned char*)malloc(sizeof(unsigned char) * m_Re_size);
 
-	
-	cntrLine cLine[8], cLineSrc[8];
+	//제어선
+	cntrLine cLine[4] = { {64, 64, 192, 64}, { 192,64,255,255 }, { 64,64,0,255 }, { 0,255,255,255 } };
+	cntrLine cLineSrc[4] = { {64,64,192,64},{192,64,192,192},{64,64,64,192},{64,192,192,192} };
 	int cntrLnum = sizeof(cLine) / sizeof(cntrLine);
 
-	
-	//제어선 초기화
-	for (i = 0; i < cntrLnum; i++) {
-		cLine[i].Lx = pointx + pointWx;
-		cLine[i].Ly = pointy + pointWy;
-		cLine[i].L1x = (i % 2) * (m_Re_width - 1);
-		cLine[i].L1y = (i / 2) * (m_Re_height - 1);
-	}
-
-	cLine[4].Lx = pointx + pointWx;
-	cLine[4].Ly = pointy + pointWy;
-	cLine[4].L1x = 128;
-	cLine[4].L1y = 0;
-
-	cLine[5].Lx = pointx + pointWx;
-	cLine[5].Ly = pointy + pointWy;
-	cLine[5].L1x = 0;
-	cLine[5].L1y = 128;
-
-	cLine[6].Lx = pointx + pointWx;
-	cLine[6].Ly = pointy + pointWy;
-	cLine[6].L1x = 256;
-	cLine[6].L1y = 128;
-
-	cLine[7].Lx = pointx + pointWx;
-	cLine[7].Ly = pointy + pointWy;
-	cLine[7].L1x = 128;
-	cLine[7].L1y = 256;
-
-	for (i = 0; i < cntrLnum; i++) {
-		cLineSrc[i].Lx = pointx;
-		cLineSrc[i].Ly = pointy;
-		cLineSrc[i].L1x = (i % 2) * (m_Re_width - 1);
-		cLineSrc[i].L1y = (i / 2) * (m_Re_height - 1);
-	}
-	
-	cLineSrc[4].Lx = pointx + pointWx;
-	cLineSrc[4].Ly = pointy + pointWy;
-	cLineSrc[4].L1x = 128;
-	cLineSrc[4].L1y = 0;
-
-	cLineSrc[5].Lx = pointx + pointWx;
-	cLineSrc[5].Ly = pointy + pointWy;
-	cLineSrc[5].L1x = 0;
-	cLineSrc[5].L1y = 128;
-
-	cLineSrc[6].Lx = pointx + pointWx;
-	cLineSrc[6].Ly = pointy + pointWy;
-	cLineSrc[6].L1x = 256;
-	cLineSrc[6].L1y = 128;
-
-	cLineSrc[7].Lx = pointx + pointWx;
-	cLineSrc[7].Ly = pointy + pointWy;
-	cLineSrc[7].L1x = 128;
-	cLineSrc[7].L1y = 256;
 
 	//계산
 	for (i = 0; i < m_Re_height; i++) {
 		for (j = 0; j < m_Re_width; j++) {
-			
+		
 			t_x = 0; t_y = 0; totalWeight = 0;
 			for (k = 0; k < cntrLnum; k++) {
 				
+				x1 = cLine[k].Px;
+				x2 = cLine[k].Qx;
+				y1 = cLine[k].Py;
+				y2 = cLine[k].Qy;
+
+				src_x1 = cLineSrc[k].Px;
+				src_x2 = cLineSrc[k].Qx;
+				src_y1 = cLineSrc[k].Py;
+				src_y2 = cLineSrc[k].Qy;
+
+				dest_line_length = sqrt((double)(x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+				src_line_length = sqrt((double)(src_x2 - src_x1) * (src_x2 - src_x1) + (src_y2 - src_y1) * (src_y2 - src_y1));
+
 				//수직 교차점의 위치 계산
-				u = (double)((j - cLine[k].Lx) * (cLine[k].L1x - cLine[k].Lx) + (i - cLine[k].Ly) * (cLine[k].L1y - cLine[k].Ly)) /
-					(pow(cLine[k].L1x - cLine[k].Lx, 2) + pow(cLine[k].L1y - cLine[k].Ly, 2));
+				u = (double)((j - x1) * (x2 - x1) + (i - y1) * (y2 - y1)) / (double)((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
 
 				//제이선으로부터의 수직 변위 계산
-				h = (double)((i - cLine[k].Ly) * (cLine[k].L1x - cLine[k].Lx) - (j - cLine[k].Lx) * (cLine[k].L1y - cLine[k].Ly)) /
-					sqrt(pow(cLine[k].L1x - cLine[k].Lx, 2) + pow(cLine[k].L1y - cLine[k].Ly, 2));
+				h = (double)((i - y1) * (x2 - x1) - (j - x1) * (y2 - y1)) / dest_line_length;
 
 				//입력 영상에서의 대응 픽셀의 위치 계산
-				srcx = cLineSrc[k].Lx + u * (cLineSrc[k].L1x - cLineSrc[k].Lx) - (double)(h*(cLineSrc[k].L1y - cLineSrc[k].Ly)) / 
-						sqrt(pow(cLineSrc[k].L1x - cLineSrc[k].Lx, 2) + pow(cLineSrc[k].L1y - cLineSrc[k].Ly, 2));
+				srcx = src_x1 + u * (src_x2 - src_x1) - h * (src_y2 - src_y1) / src_line_length;
 
-				srcy = cLineSrc[k].Ly + u * (cLineSrc[k].L1y - cLineSrc[k].Ly) - (double)(h * (cLineSrc[k].L1x - cLineSrc[k].Lx)) /
-					sqrt(pow(cLineSrc[k].L1x - cLineSrc[k].Lx, 2) + pow(cLineSrc[k].L1y - cLineSrc[k].Ly, 2));
-				
+				srcy = src_y1 + u * (src_y2 - src_y1) + h * (src_x2 - src_x1) / src_line_length;
 				
 				//픽셀과 제어선 사이의 거리
 				if (u < 0) {
-					d = sqrt(pow(j - cLine[k].Lx, 2) + pow(i - cLine[k].Ly, 2));
+					d = sqrt(pow(j - x1, 2) + pow(i - y1, 2));
 				}
-				else if (0 <= u && u <= 1){//sqrt(pow(cLine[k].L1x - cLine[k].Lx, 2) + pow(cLine[k].L1y - cLine[k].Ly, 2))) {
-					d = abs(h);
+				else if (0 <= u && u <= 1){
+					d = fabs(h);
 				}
-				else if (u > 1){//sqrt(pow(cLine[k].L1x - cLine[k].Lx, 2) + pow(cLine[k].L1y - cLine[k].Ly, 2))) {
-					d = sqrt(pow(j - cLine[k].L1x, 2) + pow(i - cLine[k].L1y, 2));
+				else if (u > 1){
+					d = sqrt(pow(j - x2, 2) + pow(i - y1, 2));
 				}
 
 				//제어선의 가중치 계산
-				weight = pow(pow(sqrt(pow(cLine[k].L1x - cLine[k].Lx, 2) + pow(cLine[k].L1y - cLine[k].Ly, 2)), p) / (a + d), b);
+				weight = pow(pow(dest_line_length, p) / (a + d), b);
 
 				//입력 영상의 대응 픽셀과의 변위 누적
 				t_x += (srcx - j) * weight;
@@ -3134,31 +3090,237 @@ void CImgprocessingsDoc::OnWarping()
 				
 			}
 			
-			//fprintf(file, "(%.4lf, %.4lf, %.4lf)\n", t_x , t_y, totalWeight);
-			X = j + (int)lround(t_x / totalWeight);
-			Y = i + (int)lround(t_y / totalWeight);
+			X = j + (int)(t_x / totalWeight+0.5);
+			Y = i + (int)(t_y / totalWeight+0.5);
 			
-			if (X < 0) {
-				X = 0;
-			}
-			else if (X >= m_width) {
-				X = m_width - 1;
-			}
+			/*
+			if (X < 0)	X = 0;
+			else if (X > m_width-1)	X = m_width - 1;
+			if (Y < 0)	Y = 0;
+			else if (Y > m_height-1)	Y = m_height - 1;
+			*/
 
-			if (Y < 0) {
-				Y = 0;
-			}
-			else if (Y >= m_height) {
-				Y = m_height - 1;
-			}
+			if (X < 0 || X > m_width - 1 || Y < 0 || Y > m_height - 1)
+				Value = 0;
+			else
+				Value = m_InputImage[Y * m_width + X];
 			
-
-			
-			m_OutputImage[i * m_Re_width + j] = m_InputImage[Y * m_width + X];
+			m_OutputImage[i * m_Re_width + j] = Value;
 		}
 	}
-	//fclose(file);
+}
 
+
+void CImgprocessingsDoc::OnGeometryMorphing()
+{
+	CFile File;
+	CFileDialog OpenDlg(TRUE);
+
+	typedef struct {
+		int Px;
+		int Py;
+		int Qx;
+		int Qy;
+	}cntrLine;
+
+	int NUM_FRAMES = 10;
+	double u; // 수직 교차점의 위치 
+	double h; // 제어선으로부터 픽셀의 수직 변위
+	double d; // 제어선과 픽셀 사이의 거리
+	double tx, ty; // 결과영상 픽셀에 대응되는 입력 영상 픽셀 사이의 변위의 합
+	double xp, yp; // 각 제어선에 대해 계산된 입력 영상의 대응되는 픽셀 위치
+	double weight; // 각 제어선의 가중치
+	double totalWeight; // 가중치의 합
+	double a = 0.001, b = 2.0, p = 0.75;
+	unsigned char** warpedImg;
+	unsigned char** warpedImg2;
+	int frame;
+	double fweight;
+	cntrLine warp_lines[23];
+	double tx2, ty2, xp2, yp2;
+	int dest_x1, dest_y1, dest_x2, dest_y2, source_x2, source_y2;
+	int x1, x2, y1, y2, src_x1, src_y1, src_x2, src_y2;
+	double src_line_length, src2_line_length, dest_line_length;
+	int i, j;
+	int num_lines = 23; // 제어선의 수
+	int line, x, y, source_x, source_y;
+
+
+	cntrLine source_lines[23] =
+	{ {116,7,207,5},{34,109,90,21},{55,249,30,128},{118,320,65,261},
+	{123,321,171,321},{179,319,240,264},{247,251,282,135},{281,114,228,8},
+	{78,106,123,109},{187,115,235,114},{72,142,99,128},{74,150,122,154},
+	{108,127,123,146},{182,152,213,132},{183,159,229,157},{219,131,240,154},
+	{80,246,117,212},{127,222,146,223},{154,227,174,221},{228,252,183,213},
+	{114,255,186,257},{109,258,143,277},{152,278,190,262} };
+
+	cntrLine dest_lines[23] =
+	{ {120,8,200,6},{12,93,96,16},{74,271,16,110},{126,336,96,290},
+	{142,337,181,335},{192,335,232,280},{244,259,288,108},{285,92,212,13},
+	{96,135,136,118},{194,119,223,125},{105,145,124,134},{110,146,138,151},
+	{131,133,139,146},{188,146,198,134},{189,153,218,146},{204,133,221,140},
+	{91,268,122,202},{149,206,159,209},{170,209,181,204},{235,265,208,199},
+	{121,280,205,284},{112,286,160,301},{166,301,214,287} };
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = (unsigned char*)malloc(sizeof(unsigned char) * m_Re_size);
+	m_OutputImageLB = (unsigned char*)malloc(sizeof(unsigned char) * m_Re_size);
+	m_OutputImageRB = (unsigned char*)malloc(sizeof(unsigned char) * m_Re_size);
+
+	if (OpenDlg.DoModal() == IDOK) {
+		File.Open(OpenDlg.GetPathName(), CFile::modeRead);
+
+		if (File.GetLength() == (unsigned long long)m_width * m_height) {
+
+			File.Read(m_OutputImage, m_size);
+			File.Close();
+		}
+		else {
+			AfxMessageBox(L"Image size not matched");
+			return;
+		}
+	}
+
+	warpedImg = OnMem2DAllocUnsigned(m_height, m_width);
+	warpedImg2 = OnMem2DAllocUnsigned(m_height, m_width);
+
+	for (i = 0; i < NUM_FRAMES; i++) {
+		m_MorphedImg[i] = OnMem2DAllocUnsigned(m_height, m_width);
+	}
+
+	for (frame = 1; frame <= NUM_FRAMES; frame++) {
+		// 중간 프레임에 대한 가중치 계산
+		fweight = (double)(frame) / (NUM_FRAMES+1);
+
+		// 중간 프레임에 대한 제어선 계산
+		for (line = 0; line < num_lines; line++) {
+			warp_lines[line].Px = (int)(source_lines[line].Px +
+				(dest_lines[line].Px - source_lines[line].Px) * fweight);
+			warp_lines[line].Py = (int)(source_lines[line].Py +
+				(dest_lines[line].Py - source_lines[line].Py) * fweight);
+			warp_lines[line].Qx = (int)(source_lines[line].Qx +
+				(dest_lines[line].Qx - source_lines[line].Qx) * fweight);
+			warp_lines[line].Qy = (int)(source_lines[line].Qy +
+				(dest_lines[line].Qy - source_lines[line].Qy) * fweight);
+		}
+
+		for (y = 0; y < m_Re_height; y++) {
+			for (x = 0; x < m_Re_width; x++) {
+
+				totalWeight = 0.0;
+				tx = 0.0;
+				ty = 0.0;
+				tx2 = 0.0;
+				ty2 = 0.0;
+
+				// 각 제어선에 대하여
+				for (line = 0; line < num_lines; line++) {
+					x1 = warp_lines[line].Px;
+					y1 = warp_lines[line].Py;
+					x2 = warp_lines[line].Qx;
+					y2 = warp_lines[line].Qy;
+					dest_line_length = sqrt((double)(x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+
+					u = (double)((x - x1) * (x2 - x1) + (y - y1) * (y2 - y1)) /
+						(double)((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+					h = (double)((y - y1) * (x2 - x1) - (x - x1) * (y2 - y1)) / dest_line_length;
+
+					// 제어선과 픽셀 사이의 거리 계산
+					if (u < 0) d = sqrt((double)(x - x1) * (x - x1) + (y - y1) * (y - y1));
+					else if (u > 1) d = sqrt((double)(x - x2) * (x - x2) + (y - y2) * (y - y2));
+					else d = fabs(h);
+
+					src_x1 = source_lines[line].Px;
+					src_y1 = source_lines[line].Py;
+					src_x2 = source_lines[line].Qx;
+					src_y2 = source_lines[line].Qy;
+					src_line_length = sqrt((double)(src_x2 - src_x1) * (src_x2 - src_x1) + (src_y2 - src_y1) * (src_y2 - src_y1));
+
+					dest_x1 = dest_lines[line].Px; 
+					dest_y1 = dest_lines[line].Py;
+					dest_x2 = dest_lines[line].Qx;
+					dest_y2 = dest_lines[line].Qy;
+					src2_line_length = sqrt((double)(dest_x2 - dest_x1) * (dest_x2 - dest_x1) + (dest_y2 - dest_y1) * (dest_y2 - dest_y1));
+
+					// 입력 영상 1에서의 대응 픽셀 위치 계산
+					xp = src_x1 + u * (src_x2 - src_x1) -
+						h * (src_y2 - src_y1) / src_line_length;
+					yp = src_y1 + u * (src_y2 - src_y1) +
+						h * (src_x2 - src_x1) / src_line_length;
+					// 입력 영상 2에서의 대응 픽셀 위치 계산
+					xp2 = dest_x1 + u * (dest_x2 - dest_x1) -
+						h * (dest_y2 - dest_y1) / src2_line_length;
+					yp2 = dest_y1 + u * (dest_y2 - dest_y1) +
+						h * (dest_x2 - dest_x1) / src2_line_length;
+
+					// 제어선에 대한 가중치 계산
+					weight = pow((pow((double)(src2_line_length), p) / (a + d)), b);
+
+					// 입력 영상 1의 대응 픽셀과의 변위 계산
+					tx += (xp - x) * weight;
+					ty += (yp - y) * weight;
+
+					// 입력 영상 2의 대응 픽셀과의 변위 계산
+					tx2 += (xp2 - x) * weight;
+					ty2 += (yp2 - y) * weight;
+
+					totalWeight += weight;
+				}
+
+				// 입력 영상 1의 대응 픽셀 위치 계산
+				source_x = x + (int)(tx / totalWeight + 0.5);
+				source_y = y + (int)(ty / totalWeight + 0.5);
+
+				// 입력 영상 2의 대응 픽셀 위치 계산
+				source_x2 = x + (int)(tx2 / totalWeight + 0.5);
+				source_y2 = y + (int)(ty2 / totalWeight + 0.5);
+
+				// 영상의 경계를 벗어나는지 검사
+				if (source_x < 0) source_x = 0;
+				if (source_x > m_width - 1) source_x = m_width-1;
+				if (source_y < 0) source_y = 0;
+				if (source_y > m_height - 1) source_y = m_height-1;
+				if (source_x2 < 0) source_x2 = 0;
+				if (source_x2 > m_width - 1) source_x2 = m_width - 1;
+				if (source_y2 < 0) source_y2 = 0;
+				if (source_y2 > m_height - 1) source_y2 = m_height - 1;
+
+				warpedImg[y][x] = m_InputImage[source_y*m_width + source_x];
+				warpedImg2[y][x] = m_OutputImage[source_y2*m_Re_width + source_x2];
+			}
+		}
+
+		// 모핑 결과 합병
+		for (y = 0; y < m_Re_height; y++) {
+			for (x = 0; x < m_Re_width; x++) {
+				int val = (int)((1.0 - fweight) * warpedImg[y][x] +
+					fweight * warpedImg2[y][x]);
+				if (val < 0) val = 0;
+				if (val > 255) val = 255;
+				m_MorphedImg[frame - 1][y][x] = val;
+			}
+		}
+
+	}
+
+	for (i = 0; i < m_Re_height; i++) {
+		for (j = 0; j < m_Re_width; j++) {
+			m_OutputImageLB[i * m_Re_width + j] = m_MorphedImg[4][i][j];
+			m_OutputImageRB[i * m_Re_width + j] = m_MorphedImg[7][i][j];
+		}
+	}
+
+	m_printImageBool = TRUE;
+
+	OnDeleteImageUC(warpedImg);
+	OnDeleteImageUC(warpedImg2);
+
+	for (i = 0; i < NUM_FRAMES; i++) {
+		OnDeleteImageUC(m_MorphedImg[i]);
+	}
 }
 
 
@@ -4449,7 +4611,7 @@ void CImgprocessingsDoc::OnLpfFrequency()
 
 	for (i = 0; i < m_Re_height; i++) {
 		for (j = 0; j < m_Re_width; j++) {
-			m_OutputImageRB[i * m_width + j] = tempIm[i][j];
+			m_OutputImageRB[i * m_width + j] = (unsigned char)tempIm[i][j];
 		}
 	}
 
@@ -4527,7 +4689,7 @@ void CImgprocessingsDoc::OnHpfFrequency()
 
 	for (i = 0; i < m_Re_height; i++) {
 		for (j = 0; j < m_Re_width; j++) {
-			m_OutputImageRB[i * m_width + j] = tempIm[i][j];
+			m_OutputImageRB[i * m_width + j] = (unsigned char)tempIm[i][j];
 		}
 	}
 
@@ -4668,13 +4830,13 @@ void CImgprocessingsDoc::OnMeanFilterSat(int mode, double** Src, double** Dst, i
 
 		for (i = 0; i < height; i++) {
 			for (j = 0; j < width; j++) {
-				UR = i + r_2Mr < 0 ? 0 : SAT[i + r_2Mr][j + radius / 2 >= width ? width - 1 : j + radius / 2];
+				UR = i + r_2Mr < 0 ? 0 : (int)SAT[i + r_2Mr][j + radius / 2 >= width ? width - 1 : j + radius / 2];
 
-				BL = j + r_2Mr < 0 ? 0 : SAT[i + radius / 2 >= height ? height - 1 : i + radius / 2][j + r_2Mr];
+				BL = j + r_2Mr < 0 ? 0 : (int)SAT[i + radius / 2 >= height ? height - 1 : i + radius / 2][j + r_2Mr];
 
-				UL = j + r_2Mr < 0 || i + r_2Mr < 0 ? 0 : SAT[i + r_2Mr][j + r_2Mr];
+				UL = j + r_2Mr < 0 || i + r_2Mr < 0 ? 0 : (int)SAT[i + r_2Mr][j + r_2Mr];
 
-				BR = SAT[i + radius / 2 >= height ? height - 1 : i + radius / 2][j + radius / 2 >= width ? width - 1 : j + radius / 2];
+				BR = (int)SAT[i + radius / 2 >= height ? height - 1 : i + radius / 2][j + radius / 2 >= width ? width - 1 : j + radius / 2];
 
 				divx = (j + radius / 2 >= width ? width - 1 : j + radius / 2) - (j - radius / 2 < 0 ? 0 : j - radius / 2) + radius % 2;
 
@@ -4711,13 +4873,13 @@ void CImgprocessingsDoc::OnMeanFilterSat(int mode, double** Src, double** Dst, i
 
 		for (i = 0; i < m_Re_height; i++) {
 			for (j = 0; j < m_Re_width; j++) {
-				UR = i + r_2Mr < 0 ? 0 : SAT[i + r_2Mr][j + radius / 2 >= m_width ? m_width - 1 : j + radius / 2];
+				UR = i + r_2Mr < 0 ? 0 : (int)SAT[i + r_2Mr][j + radius / 2 >= m_width ? m_width - 1 : j + radius / 2];
 
-				BL = j + r_2Mr < 0 ? 0 : SAT[i + radius / 2 >= m_height ? m_height - 1 : i + radius / 2][j + r_2Mr];
+				BL = j + r_2Mr < 0 ? 0 : (int)SAT[i + radius / 2 >= m_height ? m_height - 1 : i + radius / 2][j + r_2Mr];
 
-				UL = j + r_2Mr < 0 || i + r_2Mr < 0 ? 0 : SAT[i + r_2Mr][j + r_2Mr];
+				UL = j + r_2Mr < 0 || i + r_2Mr < 0 ? 0 : (int)SAT[i + r_2Mr][j + r_2Mr];
 
-				BR = SAT[i + radius / 2 >= m_height ? m_height - 1 : i + radius / 2][j + radius / 2 >= m_width ? m_width - 1 : j + radius / 2];
+				BR = (int)SAT[i + radius / 2 >= m_height ? m_height - 1 : i + radius / 2][j + radius / 2 >= m_width ? m_width - 1 : j + radius / 2];
 
 				divx = (j + radius / 2 >= m_width ? m_width - 1 : j + radius / 2) - (j - radius / 2 < 0 ? 0 : j - radius / 2) + radius % 2;
 
@@ -4919,7 +5081,7 @@ void CImgprocessingsDoc::OnDct()
 
 	for (i = 0; i < m_Re_height; i++) {
 		for (j = 0; j < m_Re_width; j++) {
-			m_OutputImage[i * m_width + j] = m_tempImage[i][j];
+			m_OutputImage[i * m_width + j] = (unsigned char)m_tempImage[i][j];
 		}
 	}
 
@@ -5525,4 +5687,1017 @@ void CImgprocessingsDoc::OnSNR()
 
 	pDlg->m_Error = (float)MeanErr; // 에러 출력
 	pDlg->m_SNR = (float)(10 * (double)log10(MeanOrg / MeanErr)); // 신호대 잡음비 계산
+}
+
+
+void CImgprocessingsDoc::OnSheer()
+{
+	int i, j;
+	double xs = -1, ys = 0;
+
+	m_Re_height = (int)(m_height + fabs(ys) * (m_height-1) + 0.5);
+	m_Re_width = (int)(m_width + fabs(xs) * (m_width - 1) + 0.5);
+	m_Re_size = m_Re_width * m_Re_height;
+
+	m_OutputImage = (unsigned char*)calloc(m_Re_size, sizeof(unsigned char));
+	m_OutputImageLB = (unsigned char*)calloc(m_Re_size, sizeof(unsigned char));
+	m_OutputImageRB = (unsigned char*)calloc(m_Re_size, sizeof(unsigned char));
+
+
+	for (i = 0; i < m_Re_height; i++) {
+		for (j = 0; j < m_Re_width; j++) {
+			m_OutputImage[i * m_Re_width + j] = 0;
+			m_OutputImageLB[i * m_Re_width + j] = 0;
+		}
+	}
+	
+	if (xs * ys == 1) {
+		for (i = 0; i < m_height; i++) {
+			for (j = 0; j < m_width; j++) {
+				m_OutputImage[((-ys < 0 ? i + m_Re_height - m_height : i) + (int)(j * -ys)) * m_Re_width + ((xs < 0 ? j + m_Re_width - m_width : j) + (int)((m_height - 1 - i) * xs))] = m_InputImage[i * m_width + j];
+			}
+		}
+	}
+	else {
+		double div = 1 - xs * ys;
+		int x, y;
+		int xcps = xs < 0 ? m_Re_width - m_width : 0;
+		int ycps = ys < 0 ? m_Re_height - m_height : 0;
+		unsigned char value;
+		for (i = 0; i < m_Re_height; i++) {
+			for (j = 0; j < m_Re_width; j++) {
+				y = (int)((-ys * j + (m_Re_height - 1 - i) + ys * xcps - ycps) / div);
+				x = (int)((-xs * (m_Re_height - 1 - i) + j + xs * ycps - xcps) / div);
+				if (y > m_height - 1 || x > m_width - 1 || y < 0 || x < 0) {
+					value = 0;
+				}
+				else
+					value = m_InputImage[(m_height-1-y) * m_width + x];
+				
+				m_OutputImage[i * m_Re_width + j] = value;
+			}
+		}
+
+		for (i = 0; i < m_height; i++) {
+			for (j = 0; j < m_width; j++) {
+				m_OutputImageLB[((-ys < 0 ? i + m_Re_height - m_height : i) + (int)(j * -ys)) * m_Re_width + ((xs < 0 ? j + m_Re_width - m_width : j) + (int)((m_height - 1 - i) * xs))] = m_InputImage[i * m_width + j];
+			}
+		}
+
+		m_printImageBool = TRUE;
+	}
+}
+
+
+void CImgprocessingsDoc::OnBinaryClose()
+{
+	CConstantDlg dlg;
+
+	int num;
+	unsigned char* tempInput;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_width * m_Re_height;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+	tempInput = new unsigned char[m_size];
+
+	memcpy(tempInput, m_InputImage, (size_t)m_size);
+
+	if (dlg.DoModal() == IDOK) {
+		num = (int)dlg.m_Constant;
+		if (num < 1) {
+			AfxMessageBox(L"num must be larger than 1");
+			return;
+		}
+	}
+
+	OnBinaryDilation(num, FALSE, FALSE, NULL);
+
+	memcpy(m_InputImage, m_OutputImage, (size_t)m_size);
+
+	OnBinaryErosion(num, FALSE, FALSE, NULL);
+
+	memcpy(m_InputImage, tempInput, (size_t)m_size);
+
+	free(tempInput);
+}
+
+
+void CImgprocessingsDoc::OnBinaryOpen()
+{
+	CConstantDlg dlg;
+
+	int num;
+	unsigned char* tempInput;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_width * m_Re_height;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+	tempInput = new unsigned char[m_size];
+
+	memcpy(tempInput, m_InputImage, (size_t)m_size);
+
+	if (dlg.DoModal() == IDOK) {
+		num = (int)dlg.m_Constant;
+		if (num < 1) {
+			AfxMessageBox(L"num must be larger than 1");
+			return;
+		}
+	}
+
+	OnBinaryErosion(num, FALSE, FALSE, NULL);
+
+	memcpy(m_InputImage, m_OutputImage, (size_t)m_size);
+
+	OnBinaryDilation(num, FALSE, FALSE, NULL);
+
+	memcpy(m_InputImage, tempInput, (size_t)m_size);
+
+	free(tempInput);
+}
+
+
+double** CImgprocessingsDoc::OnWarpAffine(double** image, double **matrix, int height, int width, int re_height, int re_width, int orgX, int orgY)
+{
+	int i, j, x, y;
+	double** tempImage, Value;
+	double xOriginPos = orgX;
+	double yOriginPos = re_height - 1 - orgY;
+
+	tempImage = Image2DMem(re_height, re_width);
+
+	for (i = 0; i < re_height; i++) {
+		for (j = 0; j < re_width; j++) {
+			x = (int)((j- xOriginPos) * matrix[0][0] + (yOriginPos -i) * matrix[0][1] + matrix[0][2]);
+			y = (int)(height-1 - ((j- xOriginPos) * matrix[1][0] + (yOriginPos - i) * matrix[1][1] + matrix[1][2]));
+			if (x < 0 || x > width - 1 || y < 0 || y > height - 1)
+				if (j == 0 || j == re_width - 1 || i == 0 || i == re_height - 1)
+					Value = 0;
+				else
+					Value = 255;
+			else
+				Value = image[y][x];
+				
+			tempImage[i][j] = Value;
+		}
+	}
+	
+	return tempImage;
+}
+
+
+double** CImgprocessingsDoc::OnForwardWarpAffine(double** image, double** matrix, int height, int width, int re_height, int re_width, int orgX, int orgY)
+{
+	int i, j, x, y;
+	double** tempImage;
+	double xOriginPos = orgX;
+	double yOriginPos = re_height - 1 - orgY;
+
+	tempImage = Image2DMem(re_height, re_width);
+
+	for (i = 0; i < height; i++) {
+		for (j = 0; j < width; j++) {
+			x = (int)(j * matrix[0][0] + (height - 1 - i) * matrix[0][1] + matrix[0][2] + xOriginPos);
+			y = (int)(yOriginPos - (j * matrix[1][0] + (height - 1 - i) * matrix[1][1] + matrix[1][2]));
+			if (x < 0 || x > re_width - 1 || y < 0 || y > re_height - 1)
+				continue;
+			else
+				tempImage[y][x] = image[i][j];
+		}
+	}
+
+	return tempImage;
+}
+
+
+void CImgprocessingsDoc::OnTranslationAffine()
+{
+	int i, j, dx = 50, dy = 50;
+	double** matrix, **temp;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+	m_tempImage = Image2DMem(m_height, m_width);
+
+	matrix = Image2DMem(2, 3);
+	matrix[0][0] = 1; matrix[0][2] = -dx;
+	matrix[1][1] = 1; matrix[1][2] = -dy;
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			m_tempImage[i][j] = m_InputImage[i * m_width + j];
+		}
+	}
+
+	temp = OnWarpAffine(m_tempImage, matrix, m_height, m_width, m_Re_height, m_Re_width, 0,0);
+
+	for (i = 0; i < m_Re_height; i++) {
+		for (j = 0; j < m_Re_width; j++) {
+			m_OutputImage[i * m_Re_width + j] = (unsigned char)temp[i][j];
+		}
+	}
+
+	free(temp[0]);
+	free(temp);
+	free(m_tempImage[0]);
+	free(m_tempImage);
+}
+
+
+void CImgprocessingsDoc::OnRotationAffine()
+{
+	int i, j;
+	double** matrix, ** temp;
+	double Radian, angle = 75, scale = 2;
+
+	Radian = (double)angle * M_PI / 180.;
+	DecideLen:
+	if (0 <= Radian && Radian <= M_PI / 2) {
+		m_Re_height = (int)(m_height / scale * cos(Radian) + m_width / scale *cos(M_PI / 2 - Radian));
+		m_Re_width = (int)(m_height/scale * cos(M_PI / 2 - Radian) + m_width/scale * cos(Radian));
+	}
+	else if (Radian < 0) {
+		Radian += M_PI / 2;
+		goto DecideLen;
+	}
+	else {
+		Radian -= M_PI / 2;
+		goto DecideLen;
+	}
+	Radian = (double)angle * M_PI / 180.;
+	
+	//m_Re_height = m_height*2;
+	//m_Re_width = m_width*2;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+	m_tempImage = Image2DMem(m_height, m_width);
+
+	matrix = OnGetRotationMatrix(m_width / 2, m_height / 2, m_Re_width/2, m_Re_height/2, angle, scale);
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			m_tempImage[i][j] = m_InputImage[i * m_width + j];
+		}
+	}
+
+	temp = OnWarpAffine(m_tempImage, matrix, m_height, m_width, m_Re_height, m_Re_width, 0,0);
+
+	for (i = 0; i < m_Re_height; i++) {
+		for (j = 0; j < m_Re_width; j++) {
+			m_OutputImage[i * m_Re_width + j] = (unsigned char)(temp[i][j]+0.5);
+		}
+	}
+
+	free(temp[0]);
+	free(temp);
+	free(m_tempImage[0]);
+	free(m_tempImage);
+}
+
+
+double** CImgprocessingsDoc::OnGetRotationMatrix(int cx, int cy, int re_cx, int re_cy, double angle, double scale)
+{
+	double radian = M_PI * angle / 180;
+	double** matrix = Image2DMem(2, 3);
+	
+	matrix[0][0] = scale * cos(radian); matrix[0][1] = scale * sin(radian);
+	matrix[0][2] = scale * (-re_cx * cos(radian) - re_cy * sin(radian)) + cx;
+
+	matrix[1][0] = scale * -sin(radian); matrix[1][1] = scale * cos(radian);
+	matrix[1][2] = scale * (re_cx * sin(radian) - re_cy * cos(radian)) + cy;
+	
+	/*
+	scale = 1 / scale;
+	matrix[0][0] = scale * cos(radian); matrix[0][1] = scale * -sin(radian);
+	matrix[0][2] = scale * (-cx * cos(radian) + cy * sin(radian)) + re_cx;
+
+	matrix[1][0] = scale * sin(radian); matrix[1][1] = scale * cos(radian);
+	matrix[1][2] = scale * (-cx * sin(radian) - cy * cos(radian)) + re_cy;
+	*/
+	return matrix;
+}
+
+
+double** CImgprocessingsDoc::OnGetAffineTransform(double** src, double** dst)
+{
+	int i, check;
+	double **matrix = mkMatrix(6, 7);
+
+	for (i = 0; i < 3; i++) {
+		matrix[i*2][0] = dst[i][0];
+		matrix[i*2][1] = dst[i][1];
+		matrix[i*2][4] = 1;
+		matrix[i*2][6] = src[i][0];
+		matrix[i*2 + 1][2] = dst[i][0];
+		matrix[i*2 + 1][3] = dst[i][1];
+		matrix[i*2 + 1][5] = 1;
+		matrix[i*2 + 1][6] = src[i][1];
+	}
+	
+	double** res = rref(matrix, &check);
+
+	delMatrix(matrix);
+	matrix = mkMatrix(2, 3);
+
+	
+	for (i = 0; i < 2; i++) {
+		matrix[0][0 + i * 3] = res[0 + i * 2][6];
+		matrix[0][1 + i * 3] = res[1 + i * 2][6];
+		matrix[0][2 + i * 3] = res[4 + i][6];
+	}
+
+	delMatrix(res);
+
+	return matrix;
+}
+
+
+void CImgprocessingsDoc::OnAffineTransform()
+{
+	int i, j, n, m;
+	double** src, ** dst;
+	double** matrix, ** temp;
+
+	src = mkMatrix(3, 2);
+	dst = mkMatrix(3, 2);
+
+	src[0][0] = 100; src[0][1] = 50;
+	src[1][0] = 200; src[1][1] = 50;
+	src[2][0] = 100; src[2][1] = 100;
+
+	dst[0][0] = 50; dst[0][1] = 50;
+	dst[1][0] = 150; dst[1][1] = 50;
+	dst[2][0] = 0; dst[2][1] = 100;
+
+	for (i = 0; i < 3; i++) {
+		for (n = -4; n < 5; n++) {
+			if (m_height - 1 - ((int)src[i][1] + n) > m_height - 1 || m_height - 1 - ((int)src[i][1] + n) < 0)
+				continue;
+			for (m = -4; m < 5; m++) {
+				if ((int)src[i][0] + m > m_width - 1 || (int)src[i][0] + m < 0)
+					continue;
+				m_InputImage[(m_height - 1 - ((int)src[i][1] + n)) * m_width + ((int)src[i][0] + m)] = 255;
+			}
+		}
+	}
+
+	m_Re_height = m_height;
+	m_Re_width = m_width*2;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+	m_tempImage = Image2DMem(m_height, m_width);
+
+	matrix = OnGetAffineTransform(src, dst);
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			m_tempImage[i][j] = m_InputImage[i * m_width + j];
+		}
+	}
+
+	temp = OnWarpAffine(m_tempImage, matrix, m_height, m_width, m_Re_height, m_Re_width, m_Re_width/2,0);
+
+	for (i = 0; i < m_Re_height; i++) {
+		for (j = 0; j < m_Re_width; j++) {
+			m_OutputImage[i * m_Re_width + j] = (unsigned char)temp[i][j];
+		}
+	}
+
+	free(temp[0]);
+	free(temp);
+	free(m_tempImage[0]);
+	free(m_tempImage);
+	delMatrix(src);
+	delMatrix(dst);
+	delMatrix(matrix);
+}
+
+
+#pragma region Matrix
+double** CImgprocessingsDoc::mkMatrix(size_t row, size_t column)
+{
+	double** matrix;
+	matrix = (double**)malloc(sizeof(double*) * row);
+	matrix[0] = (double*)calloc( (size_t)column * row, sizeof(double));
+	for (int i = 1; i < row; i++)
+	{
+		matrix[i] = matrix[i - 1] + column;
+	}
+	return matrix;
+}
+
+
+void CImgprocessingsDoc::delMatrix(double** matrix)
+{
+	free(matrix[0]);
+	free(matrix);
+}
+
+
+void CImgprocessingsDoc::delPivot(pivot* pivot)
+{
+	free(pivot->row);
+	free(pivot->column);
+}
+
+
+double** CImgprocessingsDoc::rref_sol(double** mat, pivot* piv)
+{
+	size_t row = _msize(mat) / sizeof(double*);
+	size_t column = _msize(mat[0]) / sizeof(double) / row - 1;
+	pivot pivot;
+	pivot.rank = 0;
+	pivot.row = (int*)malloc(sizeof(int) * column);
+	pivot.column = (int*)malloc(sizeof(int) * column);
+
+	//duplicate
+	double** matrix = mkMatrix(row, column + 1);
+	memcpy(matrix[0], mat[0], _msize(mat[0]));
+
+	// ~gaussion elimination
+	for (int i = 0; i < row; i++)
+	{
+		// finding pivot
+		int j;
+		for (j = pivot.rank == 0 ? 0 : pivot.column[pivot.rank - 1] + 1; j < column; j++){
+			if (matrix[i][j] != 0)
+			{
+				div1row(matrix[i], column, j);
+				pivot.row[pivot.rank] = i;
+				pivot.column[pivot.rank] = j;
+				pivot.rank += 1;
+				break;
+			}
+			else
+			{
+				for (int k = i + 1; k < row; k++)
+				{
+					if (matrix[k][j] != 0)
+					{
+						swap(matrix[i], matrix[k], column + 1);
+						j--;
+						break;
+					}
+				}
+			}
+		}
+		if (j == column){
+			for (int k = i; k < row; k++)
+			{
+				if (matrix[k][column] != 0)
+				{
+					pivot.rank = -1;
+					if (piv)
+					{
+						piv->rank = pivot.rank;
+					}
+					delPivot(&pivot);
+					delMatrix(matrix);
+					return mat;
+				}
+			}
+			break;
+		}
+		
+		// gaussion elemination
+		for (int j = i + 1; j < row; j++)
+		{
+			double temp = matrix[j][pivot.column[pivot.rank - 1]];
+			for (int k = pivot.column[pivot.rank - 1]; k <= column; k++)
+			{
+				matrix[j][k] -= matrix[i][k] * temp;
+			}
+		}
+
+	}
+
+	// jordan elimination
+	for (int i = 0; i < pivot.rank; i++)
+	{
+		for (int j = pivot.row[i] - 1; j >= 0; j--)
+		{
+			double temp = matrix[j][pivot.column[i]];
+			for (int k = pivot.column[i]; k <= column; k++)
+			{
+				matrix[j][k] -= matrix[pivot.row[i]][k] * temp;
+			}
+		}
+	}
+
+	if (piv)
+	{
+		piv->rank = pivot.rank;
+		piv->row = pivot.row;
+		piv->column = pivot.column;
+	}
+	else
+	{
+		delPivot(&pivot);
+	}
+	return matrix;
+}
+
+
+void CImgprocessingsDoc::div1row(double* matrix, size_t column, int div)
+{
+	double temp = matrix[div];
+	for (int i = div; i <= column; i++)
+	{
+		matrix[i] = matrix[i] / temp;
+	}
+
+}
+
+
+void CImgprocessingsDoc::swap(double* a, double* b, size_t num)
+{
+	double* temp = (double*)malloc(sizeof(double) * num);
+	memcpy(temp, a, sizeof(double) * num);
+	memcpy(a, b, sizeof(double) * num);
+	memcpy(b, temp, sizeof(double) * num);
+	free(temp);
+}
+
+
+double** CImgprocessingsDoc::rref(double** matrix, int* check)
+{
+	pivot pivot;
+	double** rref_matrix = rref_sol(matrix, &pivot);
+	size_t row = _msize(rref_matrix) / sizeof(double*);
+	size_t column = _msize(rref_matrix[0]) / sizeof(double) / row;
+
+	if (pivot.rank == column - 1)
+	{
+		/*
+		puts("unique solution\n");
+		for (int i = 0; i < row; i++)
+		{
+			printf("   %lf\n", rref_matrix[i][column - 1]);
+		}
+		*/
+
+		if (check != NULL)
+			*check = 1;
+
+		delPivot(&pivot);
+		return rref_matrix;
+		//delMatrix(rref_matrix);
+	}
+	else if (pivot.rank == -1)
+	{
+		if (check != NULL)
+			*check = -1;
+
+		return leastSquareMethod(matrix);
+	}
+	else
+	{
+		/*
+		puts("infinite solution\n");
+		int ppos = 0;
+		for (int i = 0; i < column - 1; i++)
+		{
+			if (i == pivot.column[ppos])
+			{
+				ppos++;
+				continue;
+			}
+			printf("x%d * [ ", i + 1);
+			for (int j = 0; j < column - 1; j++)
+			{
+
+
+				if (j >= pivot.rank)
+				{
+					for (int k = j; k < column - 1; k++)
+					{
+						if (k == i)
+							printf("%lf ", (double)1);
+						else
+							printf("%lf ", (double)0);
+					}
+					break;
+				}
+				else
+				{
+					if (j < row)
+						printf("%lf ", -1 * rref_matrix[j][i]);
+					else
+						printf("%lf ", (double)0);
+				}
+
+			}
+			puts("]T");
+		}
+		printf("const [ ");
+		for (int j = 0; j < column - 1; j++)
+		{
+			if (j < row)
+				printf("%lf ", rref_matrix[j][column - 1]);
+			else
+				printf("%lf ", (double)0);
+		}
+		puts("]T");
+		*/
+
+		if (check != NULL)
+			*check = 0;
+
+		delPivot(&pivot);
+		return rref_matrix;
+		//delMatrix(rref_matrix);
+	}
+}
+
+
+double** CImgprocessingsDoc::matrixMul(double** a, double** b)
+{
+	size_t lm = _msize(a) / sizeof(double*);
+	size_t ln = _msize(a[0]) / sizeof(double) / lm;
+
+	size_t rm = _msize(b) / sizeof(double*);
+	size_t rn = _msize(b[0]) / sizeof(double) / rm;
+
+	if (ln != rm) return a;
+	double** matrix = mkMatrix(lm, rn);
+	for (int i = 0; i < lm; i++)
+	{
+		for (int j = 0; j < rn; j++)
+		{
+			matrix[i][j] = 0;
+			for (int k = 0; k < ln; k++)
+			{
+				matrix[i][j] += a[i][k] * b[k][j];
+			}
+		}
+	}
+
+	return matrix;
+}
+
+
+double** CImgprocessingsDoc::transpose(double** matrix)
+{
+	size_t row = _msize(matrix) / sizeof(double*);
+	size_t column = _msize(matrix[0]) / sizeof(double) / row;
+
+	double** trans = mkMatrix(column, row);
+
+	for (int i = 0; i < column; i++)
+	{
+		for (int j = 0; j < row; j++)
+		{
+			trans[i][j] = matrix[j][i];
+		}
+	}
+
+	return trans;
+}
+
+
+double** CImgprocessingsDoc::augment(double** A, double** c)
+{
+	size_t row = _msize(A) / sizeof(double*);
+	size_t column = _msize(A[0]) / sizeof(double) / row;
+
+	double** aug = mkMatrix(row, column + 1);
+
+	for (int i = 0; i < row; i++)
+	{
+		memcpy(aug[i], A[i], column * sizeof(double));
+		aug[i][column] = c[i][0];
+	}
+
+	return aug;
+}
+
+
+double** CImgprocessingsDoc::decomposeAugment(double** matrix, double*** c)
+{
+	size_t row = _msize(matrix) / sizeof(double*);
+	size_t column = _msize(matrix[0]) / sizeof(double) / row - 1;
+
+	double** A = mkMatrix(row, column);
+	*c = mkMatrix(row, (size_t)1);
+
+	for (int i = 0; i < row; i++)
+	{
+		memcpy(A[i], matrix[i], column * sizeof(double));
+		(*c)[i][0] = matrix[i][column];
+	}
+
+	return A;
+
+}
+
+
+double** CImgprocessingsDoc::leastSquareMethod(double** matrix)
+{
+	double** c;
+	double** A = decomposeAugment(matrix, &c);
+	double** AT = transpose(A);
+
+	double** ATA = matrixMul(AT, A);
+	double** ATc = matrixMul(AT, c);
+
+	delMatrix(c);
+	delMatrix(A);
+	delMatrix(AT);
+
+	double** aug = augment(ATA, ATc);
+
+	delMatrix(ATA);
+	delMatrix(ATc);
+
+	//puts("[Least Square Method]");
+	double** res = rref(aug, NULL);
+
+	delMatrix(aug);
+
+	return res;
+}
+
+
+double CImgprocessingsDoc::determinant(double** mat)
+{
+	int i, j, k;
+	int row = (int)(_msize(mat) / sizeof(double*));
+	int col = (int)(_msize(mat[0]) / sizeof(double) / row);
+	double temp = 0, ** matrix;
+
+	if (row != col)
+		return 0;
+
+	matrix = mkMatrix(row, col);
+	memcpy(matrix[0], mat[0], sizeof(double) * row * col);
+
+	for (i = 0; i < row; i++) {
+		if (matrix[i][i] == 0) {
+			for (j = i + 1; j < row; j++) {
+				if (matrix[j][i] != 0) {
+					add2row(matrix[i], matrix[j], col, i);
+					goto gaussian_elimainattion;
+				}
+			}
+			return 0;
+		}
+
+	gaussian_elimainattion:
+		temp = 1;
+
+		for (j = i + 1; j < row; j++) {
+			temp = matrix[j][i] / matrix[i][i];
+			for (k = i; k < col; k++)
+				matrix[j][k] -= temp * matrix[i][k];
+		}
+
+	}
+
+	temp = 1;
+	for (i = 0; i < row; i++) {
+		temp *= matrix[i][i];
+	}
+
+	delMatrix(matrix);
+
+	return temp;
+}
+
+
+void CImgprocessingsDoc::add2row(double* matrix, double* addMat, int end, int start)
+{
+	int i;
+
+	for (i = start; i < end; i++) {
+		matrix[i] += addMat[i];
+	}
+}
+
+
+double** CImgprocessingsDoc::inverse(double** mat)
+{
+	int i, j, k;
+	int row = (int)(_msize(mat) / sizeof(double*));
+	int col = (int)(_msize(mat[0]) / sizeof(double) / row);
+	double det, ** matrix, ** invMat, temp;
+
+	invMat = mkMatrix(row, col);
+
+	for (i = 0; i < row; i++)
+		invMat[i][i] = 1;
+
+	if ((det = determinant(mat)) == 0) {
+		return invMat;
+	}
+
+	matrix = mkMatrix(row, col);
+
+	memcpy(matrix[0], mat[0], sizeof(double) * row * col);
+
+	for (i = 0; i < row; i++) {
+		if (matrix[i][i] == 0) {
+			for (j = i + 1; j < row; j++) {
+				if (matrix[j][i] != 0) {
+					add2row(matrix[i], matrix[j], col, i);
+					add2row(invMat[i], invMat[j], col, 0);
+					goto gaussian_elimainattion;
+				}
+			}
+		}
+
+	gaussian_elimainattion:
+		temp = matrix[i][i];
+		div1row(matrix[i], (size_t)col - 1, i);
+		for (j = 0; j < col; j++)
+			invMat[i][j] /= temp;
+
+		for (j = i + 1; j < row; j++) {
+			temp = matrix[j][i];
+			for (k = i; k < col; k++)
+				matrix[j][k] -= temp * matrix[i][k];
+			for (k = 0; k < col; k++)
+				invMat[j][k] -= temp * invMat[i][k];
+		}
+	}
+
+	for (i = row - 1; i > 0; i--) {
+		for (j = i - 1; j >= 0; j--) {
+			temp = matrix[j][i];
+			matrix[j][i] = 0;
+			for (k = 0; k < col; k++) {
+				invMat[j][k] -= invMat[i][k] * temp;
+			}
+		}
+	}
+
+	delMatrix(matrix);
+
+	return invMat;
+}
+#pragma endregion
+
+
+void CImgprocessingsDoc::OnPerspectiveTransform()
+{
+	int i, j, n, m;
+	double** src, ** dst, ** matrix, **temp;
+
+	m_Re_height = m_height;
+	m_Re_width = m_width;
+	m_Re_size = m_Re_height * m_Re_width;
+
+	m_OutputImage = new unsigned char[m_Re_size];
+	m_tempImage = Image2DMem(m_height, m_width);
+
+	src = mkMatrix(4, 2);
+	dst = mkMatrix(4, 2);
+
+	src[0][0] = 100; src[0][1] = 150;
+	src[1][0] = 150; src[1][1] = 150;
+	src[2][0] = 200; src[2][1] = 50;
+	src[3][0] = 50; src[3][1] = 50;
+
+	dst[0][0] = 0; dst[0][1] = m_Re_height/4;
+	dst[1][0] = 0; dst[1][1] = m_Re_height/2-1;
+	dst[2][0] = m_Re_width-1; dst[2][1] = m_Re_height-1;
+	dst[3][0] = m_Re_width-1; dst[3][1] = 0;
+
+	for (i = 0; i < 4; i++) {
+		for (n = -4; n < 5; n++) {
+			if (m_height - 1 - ((int)src[i][1] + n) > m_height - 1 || m_height - 1 - ((int)src[i][1] + n) < 0)
+				continue;
+			for (m = -4; m < 5; m++) {
+				if ((int)src[i][0] + m > m_width - 1 || (int)src[i][0] + m < 0)
+					continue;
+				m_InputImage[(m_height - 1 - ((int)src[i][1] + n)) * m_width + ((int)src[i][0] + m)] = 255;
+			}
+		}
+	}
+
+	for (i = 0; i < m_height; i++) {
+		for (j = 0; j < m_width; j++) {
+			m_tempImage[i][j] = m_InputImage[i * m_width + j];
+		}
+	}
+
+	matrix = OnGetPerspectiveTransform(src, dst);
+
+	delMatrix(src);
+	delMatrix(dst);
+
+	temp = OnWarpPerspective(m_tempImage, matrix, m_height, m_width, m_Re_height, m_Re_width);
+
+	for (i = 0; i < m_Re_height; i++) {
+		for (j = 0; j < m_Re_width; j++) {
+			m_OutputImage[i * m_Re_width + j] = (unsigned char)temp[i][j];
+		}
+	}
+
+	delMatrix(matrix);
+	delMatrix(temp);
+	delMatrix(m_tempImage);
+}
+
+
+double** CImgprocessingsDoc::OnGetPerspectiveTransform(double** src, double** dst)
+{
+	int i, j;
+	double** matrix = mkMatrix(8, 9);
+
+	for (i = 0; i < 4; i++) {
+		matrix[i][0] = src[i][0]; matrix[i][1] = src[i][1]; matrix[i][2] = 1;
+		matrix[i][6] = -src[i][0] * dst[i][0]; matrix[i][7] = -src[i][1] * dst[i][0];
+		matrix[i][8] = dst[i][0];
+
+		matrix[i+4][3] = src[i][0]; matrix[i+4][4] = src[i][1]; matrix[i+4][5] = 1;
+		matrix[i+4][6] = -src[i][0] * dst[i][1]; matrix[i+4][7] = -src[i][1] * dst[i][1];
+		matrix[i+4][8] = dst[i][1];
+	}
+
+	double** homography = rref(matrix, NULL);
+
+	delMatrix(matrix);
+
+	matrix = mkMatrix(3, 3);
+
+	for (i = 0; i < 3; i++) {
+		for (j = 0; j < 3; j++) {
+			if (i == 2 && j == 2)
+				break;
+			matrix[i][j] = homography[i * 3 + j][8];
+		}
+	}
+
+	matrix[2][2] = 1;
+
+	delMatrix(homography);
+
+	return matrix;
+}
+
+
+double** CImgprocessingsDoc::OnWarpPerspective(double** image, double** homography, int height, int width, int re_height, int re_width)
+{
+	int i, j, x, y;
+	double weight;
+	double** matrix, ** tempImage, Value;
+
+	tempImage = mkMatrix(re_height, re_width);
+	matrix = inverse(homography);
+
+	/*
+	for (i = 0; i < height; i++) {
+		for (j = 0; j < width; j++) {
+			weight = j * matrix[2][0] + (height - 1 - i) * matrix[2][1] + 1;
+			x = (int)((j * matrix[0][0] + (height - 1 - i) * matrix[0][1] + matrix[0][2]) / weight + 0.5);
+			y = (int)(re_height-1 - ((j * matrix[1][0] + (height - 1 - i) * matrix[1][1] + matrix[1][2]) / weight) + 0.5);
+			if (x<0 || x > re_width - 1 || y < 0 || y > re_height - 1)
+				continue;
+			else
+				tempImage[y][x] = image[i][j];
+		}
+	}
+	*/
+
+	for (i = 0; i < re_height; i++) {
+		for (j = 0; j < re_width; j++) {
+			weight = j * matrix[2][0] + (re_height - 1 - i) * matrix[2][1] + matrix[2][2];
+			x = (int)((j * matrix[0][0] + (re_height - 1 - i) * matrix[0][1] + matrix[0][2]) / weight + 0.5);
+			y = (int)(height - 1 - ((j * matrix[1][0] + (re_height - 1 - i) * matrix[1][1] + matrix[1][2]) / weight) + 0.5);
+			if (x < 0 || x > width - 1 || y < 0 || y > height - 1)
+				if (j == 0 || j == re_width - 1 || i == 0 || i == re_height - 1)
+					Value = 0;
+				else
+					Value = 255;
+			else
+				Value = image[y][x];
+
+			tempImage[i][j] = Value;
+		}
+	}
+
+	return tempImage;
+}
+
+
+void CImgprocessingsDoc::OnDeleteImage(double** image)
+{
+	free(image[0]);
+	free(image);
+}
+
+
+void CImgprocessingsDoc::OnDeleteImageUC(unsigned char** image)
+{
+	free(image[0]);
+	free(image);
 }
