@@ -1,42 +1,62 @@
 #ifndef __SIMILARITY_BASE__
 #define __SIMILARITY_BASE__
 
-
 #include "Model_base.h"
+#include <map>
+
+using namespace BasicAi::DataModels;
 
 namespace BasicAi {
 	namespace Similarity {
 
-		class KNN : BasicAi::model {
-			BasicAi::DataModels::DataModel data;
+
+		class KNN : model {
+			DataModel data;
 			unsigned int K;
 		public:
-			void fit(const BasicAi::DataModels::DataModel&);
-			BasicAi::DataModels::TargetModel predict(const BasicAi::DataModels::InputModel&);
-			double score(const BasicAi::DataModels::DataModel&);
+			void fit(const DataModel&);
+			TargetModel predict(const InputModel&);
+			double score(const DataModel&);
 
 			KNN(unsigned int k = 3) : K(k) {}
 		};
 
-		class KMean  {
+
+		enum KMean_initial_modes
+		{
+			KMEAN_RANDOM = 0,
+			KMEAN_FIT = 1
+		};
+
+		class KMean {
 			unsigned int K;
 
 		public:
 
-			typedef struct point_{
-				double distance;
-				double cls;
-				point_(double dis_, double cls_) : distance(dis_), cls(cls_) {}
-			}point;
+			typedef struct calc_cent_ {
+				vector<double> features;
+				double cnt;
+				calc_cent_(vector<double> f_, double c_) : features(f_), cnt(c_) {}
+				calc_cent_() : cnt(0) {}
+			}calc_cent;
 
 			typedef struct result_pack {
-				BasicAi::DataModels::DataModel dm;
-				std::vector<std::vector<double>> centroid;
-				result_pack(BasicAi::DataModels::DataModel& dm_, decltype(centroid) cent_): dm(dm_), centroid(cent_){}
+				DataModel dm;
+				vector<std::vector<double>> centroid;
+				result_pack(DataModel& dm_, decltype(centroid) cent_) : dm(dm_), centroid(cent_) {}
 			}KMean_res_pack;
 
-			KMean_res_pack predict(const BasicAi::DataModels::InputModel&, unsigned int max_iter = 100, double threshold = 1e-4);
+
 			KMean(unsigned int k = 3) : K(k) {}
+
+			KMean_res_pack predict(const BasicAi::DataModels::InputModel&, unsigned int max_iter = 100, double threshold = 1e-4, int init_mode = KMEAN_RANDOM);
+
+			void print(const KMean_res_pack& res, bool print_d_features_flag = true, bool print_centroid_flag = true);
+
+			void changeK(unsigned int K_);
+
+			//by class and centroid, key of class is class, key of centroid is concat(67,class)
+			map<double, vector<vector<double>>> classify(const KMean_res_pack& pack);
 		};
 
 	}

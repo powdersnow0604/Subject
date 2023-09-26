@@ -2,40 +2,62 @@
 #define __DATAMODEL__
 
 #include <vector>
+#include <map>
+#include <memory>
+
+using std::vector;
+using std::map;
 
 namespace BasicAi {
 	namespace DataModels {
 
-
+		//class
 		class InputModel {
 		public:
-			std::vector<std::vector<double>> input;
+			std::shared_ptr< std::vector<std::vector<double>>> input;
+			size_t size;
 
-			InputModel(std::initializer_list<std::vector<double>>&& list);	//이동 생성자
-			InputModel(const std::vector<std::vector<double>>& list);	//복사 생성자
-			InputModel(std::vector<std::vector<double>>&& list);	//이동 생성자
+			InputModel(std::initializer_list<std::vector<double>>&& list);	
+			InputModel(const std::vector<std::vector<double>>& list);	
+
+			std::vector<double>& operator[](size_t i);
 		};
 
 		class TargetModel {
 		public:
-			std::vector<double> target;
+			std::shared_ptr<std::vector<double>> target;
+			size_t size;
 
-			TargetModel(std::initializer_list<double>&& list);	//이동 생성자
-			TargetModel(const std::vector<double>& list);	//복사 생성자
-			TargetModel(std::vector<double>&& list);	//이동 생성자
+			TargetModel(std::initializer_list<double>&& list);	
+			TargetModel(const std::vector<double>& list);	
+
+			double& operator[](size_t);
 		};
 
 		class DataModel {
 		public:
-			std::vector<std::vector<double>> input;
-			std::vector<double> target;
+			std::shared_ptr< std::vector<std::vector<double>>> input;
+			std::shared_ptr<std::vector<double>> target;
+			size_t size;
 
-			DataModel(TargetModel& t, InputModel& i); //이동 생성자
-			DataModel(std::vector<std::vector<double>>& _input, std::vector<double>& _target); //이동 생성자
-			DataModel() {}
+			DataModel(TargetModel& t, InputModel& i); 
+			DataModel(const std::vector<std::vector<double>>& _input, const std::vector<double>& _target);
+			DataModel(): size(0) {}
 
-			DataModel operator= (const DataModel& other);
+			DataModel& operator= (const DataModel& other);
+			std::vector<double>& operator[](size_t) const;
+			double& operator()(size_t) const;
 		};
+
+
+		//function
+		enum class RANDOM_ENGINE
+		{
+			RE_UNIFORM = 0,
+			RE_GAUSSION = 1
+		};
+
+		InputModel randomInput(double arg1, double arg2, size_t size, int dim, RANDOM_ENGINE engine_type = RANDOM_ENGINE::RE_GAUSSION);
 	}
 }
 
