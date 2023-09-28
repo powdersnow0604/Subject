@@ -1,6 +1,5 @@
 #include "Fibonacci.h"
 #include <stdlib.h>
-#include <stdio.h>
 
 static inline void matrixMul(long long**, const long long*, long long**);
 
@@ -51,7 +50,6 @@ static void matrixMul(long long** opr1, const long long* opr2, long long** temp)
 	(*temp)[1] = (*opr1)[0] * opr2[1] + (*opr1)[1] * opr2[3];
 	(*temp)[2] = (*temp)[1];
 	(*temp)[3] = (*opr1)[2] * opr2[1] + (*opr1)[3] * opr2[3];
-
 
 	long long* t = *temp;
 	*temp = *opr1;
