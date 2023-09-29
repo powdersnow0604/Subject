@@ -17,34 +17,35 @@ long long k_n(long long k, long long n)
 long long fibonacci(int n)
 {
 	int i;
-	long long f[4] = { 0,1,1,1 };
-	long long x[4] = { 1,0,0,1 };
+	long long f[3] = { 0,1,1 };
+	long long x[3] = { 1,0,1 };
+	long long temp;
 
 	if ((n - 2) & 1)
 	{
-		x[2] = x[0] * f[1] + x[1] * f[3];
+		temp = x[0] * f[1] + x[1] * f[2];
 		x[1] = x[1] * f[1];
 		x[0] = x[0] * f[0] + x[1];
-		x[3] = x[3] * f[3] + x[1];
-		x[1] = x[2];
+		x[2] = x[2] * f[2] + x[1];
+		x[1] = temp;
 	}
 
 	for (i = 2; i <= n - 2; i *= 2) {
 		//start
-		f[2] = f[1] * (f[0] + f[3]);
+		temp = f[1] * (f[0] + f[2]);
 		f[1] *= f[1];
 		f[0] = f[0] * f[0] + f[1];
-		f[3] = f[3] * f[3] + f[1];
-		f[1] = f[2];
+		f[2] = f[2] * f[2] + f[1];
+		f[1] = temp;
 
 		if (i & (n - 2)) {
-			x[2] = x[0] * f[1] + x[1] * f[3];
+			temp = x[0] * f[1] + x[1] * f[2];
 			x[1] = x[1] * f[1];
 			x[0] = x[0] * f[0] + x[1];
-			x[3] = x[3] * f[3] + x[1];
-			x[1] = x[2];
+			x[2] = x[2] * f[2] + x[1];
+			x[1] = temp;
 		}
 	}
 
-	return x[2] + x[3];
+	return x[1] + x[2];
 }
