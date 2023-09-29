@@ -2,9 +2,11 @@
 #define __UTILITY__
 
 #include "DataModel.h"
+#include "SupportVector.hpp"
 #include <functional>
 
 using namespace BasicAi::DataModels;
+using namespace SupportVector;
 
 namespace BasicAi {
 	namespace Utility {
@@ -19,24 +21,7 @@ namespace BasicAi {
 		vector<double> stdev(const DataModel& dm, const std::vector<double>& mean);
 		double EuclidianDistance(const vector<double>& point1, const vector<double>& point2);
 		vector<double> absDiff(const vector<double>& point1, const vector<double>& point2);
-		#pragma region support vectorize operation	
-		vector<double> operator+(const vector<double>& vec1, const vector<double>& vec2);
-		vector<double> operator-(const vector<double>& vec1, const vector<double>& vec2);
-		vector<double> operator*(const vector<double>& vec1, const vector<double>& vec2);
-		vector<double> operator/(const vector<double>& vec1, const vector<double>& vec2);
-		vector<double> operator+(const vector<double>& vec1, double scalar);
-		vector<double> operator-(const vector<double>& vec1, double scalar);
-		vector<double> operator*(const vector<double>& vec1, double scalar);
-		vector<double> operator/(const vector<double>& vec1, double scalar);
-		vector<double>& operator+=(vector<double>& vec1, const vector<double>& vec2);
-		vector<double>& operator-=(vector<double>& vec1, const vector<double>& vec2);
-		vector<double>& operator*=(vector<double>& vec1, const vector<double>& vec2);
-		vector<double>& operator/=(vector<double>& vec1, const vector<double>& vec2);
-		vector<double>& operator+=(vector<double>& vec1, double scalar);
-		vector<double>& operator-=(vector<double>& vec1, double scalar);
-		vector<double>& operator*=(vector<double>& vec1, double scalar);
-		vector<double>& operator/=(vector<double>& vec1, double scalar);
-		#pragma endregion
+		
 
 		//templates
 		template <typename iter>
@@ -64,14 +49,7 @@ namespace BasicAi {
 			return min;
 		}
 
-		template <typename T>
-		double vector_sum(const vector<T>& vec) {
-			double sum = 0;
-			for (auto& i : vec) {
-				sum += i;
-			}
-			return sum;
-		}
+		
 	}
 }
 #endif

@@ -7,6 +7,8 @@
 
 using std::vector;
 using std::map;
+using Vector2D = vector<vector<double>>;
+using Vector = vector<double>;
 
 namespace BasicAi {
 	namespace DataModels {
@@ -20,7 +22,7 @@ namespace BasicAi {
 			InputModel(std::initializer_list<std::vector<double>>&& list);	
 			InputModel(const std::vector<std::vector<double>>& list);	
 
-			std::vector<double>& operator[](size_t i);
+			std::vector<double>& operator[](size_t i) const;
 		};
 
 		class TargetModel {
@@ -31,7 +33,7 @@ namespace BasicAi {
 			TargetModel(std::initializer_list<double>&& list);	
 			TargetModel(const std::vector<double>& list);	
 
-			double& operator[](size_t);
+			double& operator[](size_t) const;
 		};
 
 		class DataModel {

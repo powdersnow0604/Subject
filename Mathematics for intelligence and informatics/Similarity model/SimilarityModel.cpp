@@ -1,7 +1,6 @@
 #include "SimilarityModel.h"
 #include "Utility.h"
 #include <algorithm>
-#include <random>
 #include <cmath>
 #include <iostream>
 #include <string>
@@ -69,20 +68,27 @@ namespace BasicAi {
 
 
 		//kMean
-		KMean::KMean_res_pack BasicAi::Similarity::KMean::predict
-		(const InputModel& In, unsigned int max_iter, double threshold, int init_mode)
+		void KMeans::fit (const InputModel& In)
 		{
-			std::vector<std::vector<double>> centroid(K);
-			std::vector<std::vector<double>> prev_centroid(K);
-			std::map<double, calc_cent> calc_new_centroid;
-			DataModel res(*In.input, std::vector<double>(In.size));
-			double rand_upper_bound = std::numeric_limits<double>::max(), rand_lower_bound = std::numeric_limits<double>::min();
+			unsigned int max_cnt, init_cnt = 0;
+			//constexpr double rand_upper_bound = std::numeric_limits<double>::max(), rand_lower_bound = std::numeric_limits<double>::lowest();
+			size_t min_arg;
 
-			const vector<double> zeros(res[0].size());
-			
+			std::mt19937 gen;
+			//std::uniform_real_distribution<double> udist(rand_upper_bound, rand_lower_bound);
+
+			Vector2D centroid(K,Vector(In[0].size()));
+			Vector2D prev_centroid;
+			std::map<double, calc_cent> calc_helper;
+
+			DataModel res(*In.input, std::vector<double>(In.size));
+			const Vector zeros(res[0].size());
+			Vector inertias; inertias.reserve(n_init);
+			vector<Vector2D> save_centroids; save_centroids.reserve(n_init);
+			Vector2D save_labels; save_labels.reserve(n_init);
 			
 			//input data의 max, min 찾기
-			std::vector<double> input_max(res[0]), input_min(res[0]);
+			Vector input_max(res[0]), input_min(res[0]);
 
 			for (auto& i : *res.input) {
 				for (size_t j = 0; j < res[0].size(); ++j) {
@@ -91,93 +97,140 @@ namespace BasicAi {
 				}
 			}
 
-			if (init_mode == KMEAN_FIT) {
-				rand_upper_bound = input_max[0];
-				rand_lower_bound = input_min[0];
-				for (size_t i = 1; i < res[0].size(); ++i) {
-					if (rand_upper_bound < input_max[i]) rand_upper_bound = input_max[i];
-					if (rand_lower_bound > input_min[i]) rand_lower_bound = input_min[i];
-				}
+			std::uniform_real_distribution<double> udist(max(input_max), min(input_min));
+
+			//random 시드 설정
+			if(random_seed == -1){
+				std::random_device rd;
+				gen.seed(rd());
 			}
-
-			//random 범위 설정
-			std::random_device rd;
-			std::mt19937 gen(rd());
-			std::uniform_real_distribution<double> udist(rand_lower_bound, rand_upper_bound);
-
-			//임의의 discriptive features 생성
-			for (auto& i : centroid) {
-				i.reserve(res[0].size());
-				for (size_t j = 0; j < res[0].size(); ++j) {
-					i.push_back(udist(gen));
-				}
+			else {
+				gen.seed(random_seed);
 			}
+			
 
-			while (0 < max_iter--) {
-				//초기화
-				for (double i = 0; i < K; ++i) {
-					calc_new_centroid[i] = {zeros, 0};
-				}
-
-				//각 features에 대해
-				for (size_t i = 0; i < res.size; ++i) {
-					//각 centroid에 대해
-					size_t min = 0;
-					double d = EuclidianDistance(res[i], centroid[0]);
-					for (size_t j = 1; j < K; ++j) {
-						double temp = EuclidianDistance(res[i], centroid[j]);
-						if (d > temp) {
-							min = j;
-							d = temp;
+			while (init_cnt++ < n_init) {
+				//centroid 초기화
+				if (init == KMEAN_INIT::KMEAN_RANDOM) {
+					//임의의 discriptive features 생성
+					for (auto& i : centroid) {
+						for (size_t j = 0; j < i.size(); ++j) {
+							i[j] = udist(gen);
 						}
 					}
-
-					res(i) = (double)min;
+				}
+				if (init == KMEAN_INIT::KMEAN_KMEANPP) {
+					centroid = KMeanspp(In, gen);
 				}
 
-				//new centroid 계산
-				prev_centroid = centroid;
+				max_cnt = 0;
+				while (max_cnt++ < max_iter) {
+					//초기화
+					for (double i = 0; i < K; ++i) {
+						calc_helper[i] = { zeros, 0 };
+					}
 
-				for (size_t i = 0; i < res.size; ++i) {
-					calc_new_centroid[res(i)].features += res[i];
-					calc_new_centroid[res(i)].cnt += 1;
-				}
-
-				auto calc_iter = calc_new_centroid.begin();
-				std::for_each(centroid.begin(), centroid.end(), [&calc_iter, &input_max, &input_min, this](auto& vec) 
-					{
-						if ((calc_iter->second).cnt != 0) {
-							vec = (calc_iter->second).features / (calc_iter->second).cnt;
-						}
-						else {
-							for (size_t i = 0; i < vec.size(); ++i) {
-								vec[i] = input_min[i] + (input_max[i] - input_min[i]) * (calc_iter->first + 1) / this->K;
+					//각 features에 대해
+					for (size_t i = 0; i < res.size; ++i) {
+						//각 centroid에 대해
+						size_t min = 0;
+						double d = EuclidianDistance(res[i], centroid[0]);
+						for (size_t j = 1; j < K; ++j) {
+							double temp = EuclidianDistance(res[i], centroid[j]);
+							if (d > temp) {
+								min = j;
+								d = temp;
 							}
 						}
 
-						++calc_iter;
-					});
+						res(i) = (double)min;
+					}
+
+					//new centroid 계산
+					prev_centroid = centroid;
+
+					for (size_t i = 0; i < res.size; ++i) {
+						calc_helper[res(i)].features += res[i];
+						calc_helper[res(i)].cnt += 1;
+					}
+
+					auto calc_iter = calc_helper.begin();
+					std::for_each(centroid.begin(), centroid.end(), [&calc_iter, &input_max, &input_min, this](auto& vec)
+						{
+							if ((calc_iter->second).cnt != 0) {
+								vec = (calc_iter->second).features / (calc_iter->second).cnt;
+							}
+							
+							else {
+								for (size_t i = 0; i < vec.size(); ++i) {
+									vec[i] = input_min[i] + (input_max[i] - input_min[i]) * calc_iter->first / (this->K - 1);
+								}
+							}
+
+							++calc_iter;
+						});
 
 
-				for (size_t i = 0; i < centroid.size(); ++i) {
-					auto absdiff = absDiff(centroid[i], prev_centroid[i]);
-					if (vector_sum(absdiff) > threshold) goto continue_iter;
+					for (size_t i = 0; i < centroid.size(); ++i) {
+						double moved = EuclidianDistance(centroid[i], prev_centroid[i]);
+						if (moved > threshold) goto continue_iter;
+					}
+
+					break;
+
+				continue_iter:
+					continue;
+
 				}
 
-				break;
-
-			continue_iter:
-				continue;
-
+				inertias.push_back(costFunction(res, centroid));
+				save_centroids.push_back(centroid);
+				save_labels.push_back(*res.target);
 			}
 
-
-			return { res, centroid };
+			min_arg = argmin(inertias);
+			cluster_centers = save_centroids[min_arg];
+			labels = save_labels[min_arg];
+			inertia = inertias[min_arg];
 		}
 
-		void KMean::changeK(unsigned int K_) { K = K_; }
+		Vector KMeans::predict(const InputModel& In)
+		{
+			Vector res; res.reserve(In.size);
 
-		void KMean::print(const KMean_res_pack& res, bool print_d_features_flag, bool print_centroid_flag)
+			for (auto& point : *In.input) {
+				size_t min_arg = 0;
+				double min_distance = EuclidianDistance(cluster_centers[0], point);
+				for (size_t i = 1; i < cluster_centers.size(); ++i) {
+					double temp = EuclidianDistance(cluster_centers[i], point);
+					if (min_distance > temp) {
+						min_arg = i;
+						min_distance = temp;
+					}
+				}
+
+				res.push_back(static_cast<double>(min_arg));
+			}
+
+			return res;
+		}
+
+		void KMeans::setParam(paramPack pack)
+		{
+			K = pack.K;
+			max_iter = pack.max_iter;
+			threshold = pack.threshold;
+			n_init = pack.n_init;
+			init = pack.init;
+			random_seed = pack.random_seed;
+		}
+
+		KMeans::paramPack KMeans::getParam()
+		{
+			return { K, max_iter, threshold, n_init, init, random_seed };
+		}
+
+		void KMeans::print(const InputModel& In, bool print_d_features_flag, bool print_centroid_flag)
 		{
 			using std::cout;
 			using std::endl;
@@ -186,8 +239,12 @@ namespace BasicAi {
 				cout << "<    descriptive features    >" << endl;
 				cout << "[feature]  [class]" << endl;
 				cout << "-------------------" << endl;
-				for (size_t i = 0; i < res.dm.size; ++i) {
-					cout << "[" << res.dm[i][0] << " " << res.dm[i][1] << "]: " << res.dm(i) << endl;
+				for (size_t i = 0; i < In.size; ++i) {
+					cout << "[ ";
+					for (auto& j : In[i]) {
+						cout << j << " ";
+					}
+					cout << "]: " << labels[i] << endl;
 				}
 
 				cout << endl;
@@ -198,9 +255,9 @@ namespace BasicAi {
 				cout << "<    centroid    >" << endl;
 				cout << "[centroid number]  [position]" << endl;
 				cout << "-----------------------------" << endl;
-				for (size_t i = 0; i < res.centroid.size(); ++i) {
+				for (size_t i = 0; i < cluster_centers.size(); ++i) {
 					cout << "centroid " << i << ": [ ";
-					for (auto& j : res.centroid[i]) {
+					for (auto& j : cluster_centers[i]) {
 						cout << j << " ";
 					}
 					cout << "]" << endl;
@@ -210,20 +267,90 @@ namespace BasicAi {
 			}
 		}
 
-		map<double, vector<vector<double>>> KMean::classify(const KMean_res_pack& pack)
+		map<double, vector<vector<double>>> KMeans::classify(const InputModel & In)
 		{
 			map<double, vector<vector<double>>> res;
 
-			for (size_t i = 0; i < pack.dm.size; ++i) {
-				res[pack.dm(i)].push_back(pack.dm[i]);
+			for (size_t i = 0; i < In.size; ++i) {
+				res[labels[i]].push_back(In[i]);
 			}
 
 			int index = 0;
-			for (auto& i : pack.centroid) {
-				res[(double)std::stoi(std::to_string(67) + std::to_string(index++))].push_back(i);
+			for (auto& i : cluster_centers) {
+				res[static_cast<double>(pow(10, (int)std::log10(K)+1) + index++)].push_back(i);
 			}
 			
 			return res;
 		}
+
+		double KMeans::costFunction(const DataModel& dm, const Vector2D& Centroids)
+		{
+			double sum = 0.;
+			for (size_t i = 0; i < dm.size; ++i) {
+				sum += std::pow(EuclidianDistance(dm[i], Centroids[static_cast<size_t>(dm(i))]), 2);
+			}
+
+			return sum;
+		}
+
+		Vector2D KMeans::elbowMethod(const InputModel& In, unsigned int max_K, unsigned int max_iter_,
+			double threshold_, unsigned int n_init_, int random_seed_)
+		{
+			if (max_K < 2) return{};
+
+			vector<unsigned int> k_range = range(2u, max_K+1, 1u);
+			Vector2D res; res.reserve(k_range.size());
+
+			KMeans model(2, max_iter_, threshold_, n_init_, KMEAN_INIT::KMEAN_RANDOM, random_seed_ == -1 ? std::random_device()() : random_seed_);
+			auto params = model.getParam();
+
+			for (auto& i : k_range) {
+				params.K = i;
+				model.setParam(params);
+				model.fit(In);
+				res.push_back({ static_cast<double>(i), model.inertia });
+			}
+
+			return res;
+		}
+
+		Vector2D KMeans::KMeanspp(const InputModel& In, std::mt19937& mt)
+		{
+			double d_sum, rnd;
+			Vector2D centroids; centroids.reserve(K);
+			Vector probs(In.size+1);
+
+			std::uniform_int_distribution<int> ui_dist(0, (int)In.size - 1);
+			std::uniform_real_distribution<double> ur_dist(0, 1);
+
+			centroids.push_back(In[ui_dist(mt)]);
+
+			while (centroids.size() != K) {
+				for (size_t i = 0; i < In.size; ++i) {
+					double d = EuclidianDistance(In[i], centroids[0]);
+					for (size_t j = 1; j < centroids.size(); ++j) {
+						double temp = EuclidianDistance(In[i], centroids[j]);
+						if (d > temp) d = temp;
+					}
+
+					probs[i+1] = d * d;
+				}
+
+				d_sum = vSum(probs);
+
+				probs /= d_sum;
+
+				rnd = ur_dist(mt);
+				for (size_t i = 0; i < In.size; ++i) {
+					if (probs[i] <= rnd && rnd < probs[i + 1]) {
+						centroids.push_back(In[i]);
+						break;
+					}
+				}
+			}
+
+			return centroids;
+		}
+
 	}
 }

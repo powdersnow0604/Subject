@@ -17,7 +17,7 @@ namespace BasicAi {
 			input = std::make_shared< std::vector<std::vector<double>>>(list);
 		}
 
-		std::vector<double>& InputModel::operator[](size_t i)
+		std::vector<double>& InputModel::operator[](size_t i) const
 		{
 			return (*input)[i];
 		}
@@ -34,7 +34,7 @@ namespace BasicAi {
 			target = std::make_shared<std::vector<double>>(list);
 		}
 
-		double& TargetModel::operator[](size_t i)
+		double& TargetModel::operator[](size_t i) const
 		{
 			return (*target)[i];
 		}
