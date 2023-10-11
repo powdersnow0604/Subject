@@ -3,7 +3,7 @@
 
 
 //declaration
-static void delete_list_(node_i* node);
+static void free_list_(node_i* node);
 
 
 //definition
@@ -12,26 +12,21 @@ void init_list(list_i* list)
 	list->first = NULL;
 	list->size = 0;
 }
-void delete_list(list_i* list)
+void free_list(list_i* list)
 {
-	delete_list_(list->first);
+	if (list->first == NULL) return;
+	free_list_(list->first);
 	free(list->first);
 	list->size = 0;
 }
-static void delete_list_(node_i* node)
+static void free_list_(node_i* node)
 {
 	if (node->next == NULL) return;
 
-	delete_list_(node->next);
+	free_list_(node->next);
 	free(node->next);
 }
-void list_foreach(list_i* list, void(*func)(int))
-{
-	node_i* curr = list->first;
-	for (; curr != NULL; curr = curr->next) {
-		func(curr->element);
-	}
-}
+
 
 int* list_search_i(list_i* list, int x)
 {
@@ -42,18 +37,23 @@ int* list_search_i(list_i* list, int x)
 
 	return NULL;
 }
-
 void list_insert_i(list_i* list, int x, int flag)
 {
 	//create nnode
 	node_i* nnode;
 	nnode = (node_i*)malloc(sizeof(node_i));
+	if (nnode == NULL) return;
+
 	nnode->element = x;
 	
 	//increase size
 	++(list->size);
 
 	node_i* curr = list->first;
+
+	//degenerate case: enpty list
+	if (curr == NULL) goto insert_in_empty_list;
+
 
 	//degenerate case: insert front
 	if (flag) {
@@ -64,6 +64,7 @@ void list_insert_i(list_i* list, int x, int flag)
 	}
 
 
+	//generate case
 	for (; curr->next != NULL; curr = curr->next) {
 		if (flag) {
 			if (curr->next->element > x) break;
@@ -74,13 +75,23 @@ void list_insert_i(list_i* list, int x, int flag)
 	}
 
 	//degenerate case: insert end
-	if (curr->next != NULL) goto insert_as_last;
+	if (curr->next == NULL) goto insert_as_last;
 
+
+insert_as_generate_case:
 
 	nnode->next = curr->next;
 	nnode->prev = curr;
-	nnode->next->prev = nnode;
+	if(nnode->next != NULL) nnode->next->prev = nnode;
 	curr->next = nnode;
+
+	return;
+
+insert_in_empty_list:
+
+	nnode->next = curr;
+	nnode->prev = NULL;
+	list->first = nnode;
 
 	return;
 
@@ -104,4 +115,13 @@ insert_as_last:
 void list_delete_i(list_i* list, int x)
 {
 
+}
+
+
+void list_foreach_i(list_i* list, void(*func)(int))
+{
+	node_i* curr = list->first;
+	for (; curr != NULL; curr = curr->next) {
+		func(curr->element);
+	}
 }
