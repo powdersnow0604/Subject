@@ -6,6 +6,7 @@
 #include <vector>
 #include <stack>
 #include <set>
+#include <queue>
 #include <array>
 #include <fstream>
 #include <string>
@@ -17,6 +18,8 @@ using std::set;
 using std::map;
 using std::vector;
 using std::stack;
+using std::queue;
+using std::priority_queue;
 using std::array;
 using std::string;
 using std::cout;
@@ -545,5 +548,150 @@ namespace DataStructure {
 
 		return bcc;
 	}
+
+	//////////////////////////////////////////////////////////////////////////		bfs derived		///////////////////////////////////////////////////////////////////////////////////////////////
+
+	template <typename T, EdgeListType type>
+	void bfs(const graph<T, type>& G, T S, function<void(T)> func = nullptr)
+	{
+		map<T, size_t> dist;
+		const EDGELIST<T, type>& edge_list = G.getEdgeList();
+		queue<T> Q;
+		T u;
+		size_t dist_max = std::numeric_limits<size_t>::max();
+
+		for (auto& [K, V] : edge_list()) {
+			dist[K] = dist_max;
+		}
+
+		Q.push(S);
+		dist[S] = 0;
+
+		while (!Q.empty()) {
+			u = Q.front();
+			Q.pop();
+
+			if (func != nullptr) func(u);
+			
+
+			if constexpr (type == EdgeListType::MATRIX) {
+				for (auto& [K, V] : edge_list[u]) {
+					if (dist[K] == dist_max && V.connected) {
+						Q.push(K);
+						dist[K] = dist[u] + 1;
+					}
+				}
+			}
+			else {
+				for (auto& V : edge_list[u]) {
+					if (dist[V.vertex] == dist_max) {
+						Q.push(V.vertex);
+						dist[V.vertex] = dist[u] + 1;
+					}
+				}
+			}
+		}
+	}
+
+	template <typename T>
+	struct sssp {
+		map<T, T> prev;
+		map<T, double> dist;
+		sssp(const map<T, T>& p, const map<T, double>& d) : prev(p), dist(d) {}
+	};
+
+	template <typename T, EdgeListType type>
+	sssp<T> dijkstra(const graph<T, type>& G, T S)
+	{
+		struct Qelement {
+			T vertex;
+			double distance;
+			Qelement(const T v, const double d) : vertex(v), distance(d) {}
+			bool operator< (const Qelement& other) { return distance < other.distance; }
+		};
+
+		map<T, double> dist;
+		map<T, T> prev;
+
+		Qelement u;
+		const EDGELIST<T, type>& edge_list = G.getEdgeList();
+		priority_queue<Qelement> Q;
+		double dist_max = std::numeric_limits<double>::max();
+
+		for (auto& [K, V] : edge_list()) {
+			dist[K] = dist_max;
+			prev[K] = NULL;
+		}
+
+		dist[S] = 0;
+
+		for (auto& [K, V] : dist) {
+			Q.push({ K, V });
+		}
+
+		while (!Q.empty()) {
+			u = Q.top();
+			Q.pop();
+			
+
+			if constexpr (type == EdgeListType::MATRIX) {
+				for (auto& [K, V] : edge_list[u]) {
+					if (dist[K] == dist_max && V.connected) {
+						Q.push(K);
+						dist[K] = dist[u] + 1;
+					}
+				}
+			}
+			else {
+				for (auto& V : edge_list[u]) {
+					
+				}
+			}
+
+		}
+		
+		return { prev, dist };
+	}
+
+	template <typename T, EdgeListType type>
+	sssp<T> Bellman_Ford(const graph<T, type>& G, T S, T null_value = NULL)
+	{
+		map<T, double> dist;
+		map<T, T> prev;
+
+		const EDGELIST<T, type>& edge_list = G.getEdgeList();
+		double dist_max = std::numeric_limits<double>::max();
+
+		for (auto& [K, V] : edge_list()) {
+			dist[K] = dist_max;
+			prev[K] = null_value;
+		}
+
+		dist[S] = 0;
+
+		for (auto& [K, V] : edge_list()) {
+
+			if constexpr (type == EdgeListType::MATRIX) {
+				for (auto& [T, W] : V) {
+					if (W.connected && dist[T] > dist[K] + W.weight) {
+						dist[T] = dist[K] + W.weight;
+						prev[T] = K;
+					}
+				}
+			}
+			else {
+				for (auto& W : V) {
+					if (dist[W.vertex] > dist[K] + W.weight) {
+						dist[W.vertex] = dist[K] + W.weight;
+						prev[W.vertex] = K;
+					}
+				}
+			}
+
+		}
+
+		return { prev, dist };
+	}
+	
 }
 #endif
