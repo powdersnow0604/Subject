@@ -619,13 +619,17 @@ namespace DataStructure {
 	};
 
 	template <typename T, EdgeListType type>
-	sssp<T> dijkstra(const graph<T, type>& G, T S)
+	sssp<T> dijkstra(const graph<T, type>& G, T S, T null_value = NULL)
 	{
+
 		struct Qelement {
 			T vertex;
 			double distance;
+			Qelement() : vertex(NULL), distance(0) {}
 			Qelement(const T v, const double d) : vertex(v), distance(d) {}
 			bool operator< (const Qelement& other) { return distance < other.distance; }
+			bool operator== (const Qelement & other) { return vertex < other.vertex; }
+			Qelement& operator= (const Qelement& other) { vertex = other.vertex; distance = other.distance; return *this; }
 		};
 
 		map<T, double> dist;
@@ -633,36 +637,49 @@ namespace DataStructure {
 
 		Qelement u;
 		const EDGELIST<T, type>& edge_list = G.getEdgeList();
-		priority_queue<Qelement> Q;
+		vector<Qelement> Q;
 		double dist_max = std::numeric_limits<double>::max();
 
 		for (auto& [K, V] : edge_list()) {
 			dist[K] = dist_max;
-			prev[K] = NULL;
+			prev[K] = null_value;
 		}
-
+		
 		dist[S] = 0;
 
+		Q.reserve(dist.size());
+
 		for (auto& [K, V] : dist) {
-			Q.push({ K, V });
+			Q.push_back({ K, V });
 		}
 
+
 		while (!Q.empty()) {
-			u = Q.top();
-			Q.pop();
+			auto min_iter = std::min_element(Q.begin(), Q.end());
+			u = *min_iter;
+			Q.erase(min_iter);
 			
 
 			if constexpr (type == EdgeListType::MATRIX) {
-				for (auto& [K, V] : edge_list[u]) {
-					if (dist[K] == dist_max && V.connected) {
-						Q.push(K);
-						dist[K] = dist[u] + 1;
+				for (auto& [K, V] : edge_list[u.vertex]) {
+
+					auto iter = std::find(Q.begin(), Q.end(), { K, 0 });
+					std::find()
+					if (V.connected && iter != Q.end() && dist[K] > dist[u.vertex] + V.wieght) {
+						dist[K] = dist[u.vertex] + V.wieght;
+						prev[K] = u.vertex;
+						iter->distance = dist[K];
 					}
 				}
 			}
 			else {
 				for (auto& V : edge_list[u]) {
-					
+					auto iter = std::find(Q.begin(), Q.end(), { V.vertex, 0 });
+					if (iter != Q.end() && dist[V.vertex] > dist[u] + V.wieght) {
+						dist[V.vertex] = dist[u] + V.wieght;
+						prev[V.vertex] = u;
+						iter->distance = dist[V.vertex];
+					}
 				}
 			}
 
