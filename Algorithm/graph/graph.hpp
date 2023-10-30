@@ -479,7 +479,30 @@ namespace DataStructure {
 		dfn[vertex] = low[vertex] = num++;
 
 		if constexpr (type == EdgeListType::MATRIX) {
-			
+			for (auto& [K, V] : edge_list[vertex]) {
+				if (V.connected && dfn[K] == 0) {
+					stack_.push({ vertex, K });
+
+					BCCSubroutine(edge_list, K, vertex, dfn, low, num, bcc, stack_);
+
+					low[vertex] = low[vertex] > low[K] ? low[K] : low[vertex];
+
+					if (low[K] >= dfn[vertex]) {
+						bcc.push_back({});
+						size_t i = bcc.size() - 1;
+						array<T, 2> temp;
+						do {
+							temp = stack_.top();
+							stack_.pop();
+							bcc[i].insert(temp[0]);
+							bcc[i].insert(temp[1]);
+						} while (temp[0] != vertex && temp[1] != K);
+					}
+				}
+				else if (V.connected && K != parent) {
+					low[vertex] = low[vertex] > dfn[K] ? dfn[K] : low[vertex];
+				}
+			}
 		}
 		else {
 			for (auto& V : edge_list[vertex]) {
@@ -510,7 +533,7 @@ namespace DataStructure {
 	}
 
 	template <typename T, EdgeListType type>
-	vector<set<T>> BCC(const graph<T, type> G, bool print = false)
+	vector<set<T>> BCC(const graph<T, type> G, T root_parent = NULL, bool print = false)
 	{
 		const EDGELIST<T, type>& edge_list = G.getEdgeList();
 		size_t num = 1;
@@ -526,7 +549,7 @@ namespace DataStructure {
 
 		for (auto& [K, V] : edge_list()) {
 			if (dfn[K] == 0) {
-				BCCSubroutine(edge_list, K, K, dfn, low, num, bcc, stack_);
+				BCCSubroutine(edge_list, K, root_parent, dfn, low, num, bcc, stack_);
 				while (!stack_.empty()) stack_.pop();
 			}
 		}
@@ -540,11 +563,6 @@ namespace DataStructure {
 				cout << endl;
 			}
 		}
-
-		for (auto& [k,v] : low) {
-			cout << v << " ";
-		}
-		cout << endl;
 
 		return bcc;
 	}
@@ -693,5 +711,76 @@ namespace DataStructure {
 		return { prev, dist };
 	}
 	
+	template <typename T, EdgeListType type>
+	map<T, map<T, double>> Floyd(const graph<T, type>& G, bool print = false)
+	{
+		const EDGELIST<T, type>& edge_list = G.getEdgeList();
+		double dist_max = std::numeric_limits<double>::max();
+		map<T, map<T, double>> dist;
+		set<T> verteces;
+		
+
+		if constexpr (type == EdgeListType::MATRIX) {
+			for (auto& [KF, KV] : edge_list()) {
+				verteces.insert(KF);
+				for (auto& [KT, VT] : KV) {
+					if (KF == KT) dist[KF][KT] = 0;
+					else if (VT.connected) dist[KF][KT] = VT.weight;
+					else dist[KF][KT] = dist_max;
+				}
+			
+			}
+		}
+		else {
+			for (auto& [KF, KV] : edge_list()) {
+				verteces.insert(KF);
+				for (auto& VT : KV) {
+					verteces.insert(VT.vertex);
+					dist[KF][VT.vertex] = VT.weight;
+				}
+			}
+
+			for (auto& K : verteces) {
+				dist[K];
+			}
+
+			for (auto& [KF, V] : dist) {
+				for (auto& KT : verteces) {
+					if (KF == KT) V[KT] = 0;
+					if (V.find(KT) == V.end()) V[KT] = dist_max;
+				}
+			}
+		}
+
+
+		for (auto& K : verteces) {
+			for (auto& I : verteces) {
+				for (auto& J : verteces) {
+					if (I == K || J == K || I == J) continue;
+					if (dist[I][J] > dist[I][K] + dist[K][J])
+						dist[I][J] = dist[I][K] + dist[K][J];
+				}
+			}
+		}
+
+		if (print) {
+			cout << "  ";
+			for (auto& [K, V] : dist) {
+				cout << K << " ";
+			}
+			cout << endl;
+
+			for (auto& [K, V] : dist) {
+				cout << K << " ";
+				for (auto& [T, B] : V) {
+					cout << B << " ";
+				}
+				cout << endl;
+			}
+		}
+
+		return dist;
+
+	}
 }
 #endif
