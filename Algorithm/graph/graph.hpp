@@ -5,6 +5,7 @@
 #include <map>
 #include <vector>
 #include <stack>
+#include <forward_list>
 #include <set>
 #include <queue>
 #include <array>
@@ -20,6 +21,7 @@ using std::vector;
 using std::stack;
 using std::queue;
 using std::priority_queue;
+using std::forward_list;
 using std::array;
 using std::string;
 using std::cout;
@@ -37,70 +39,68 @@ namespace DataStructure {
 	};
 
 	
-	template <typename T>
-	struct list_help_ {
-		T vertex;
+	
+	typedef struct list_help_ {
+		size_t vertex;
 		double weight;
-		list_help_(T v_, double w_ = 0): vertex(v_), weight(w_) {}
-	};
-
-	template <typename T>
-	using list_help = list_help_<T>;
+		list_help_(size_t v_, double w_ = 0): vertex(v_), weight(w_) {}
+		bool operator< (const list_help_& other) const { return vertex < other.vertex; }
+	}list_help;
 
 	typedef struct matrix_help_ {
 		bool connected;
 		double weight;
 	}matrix_help;
 
-	template <typename T>
-	using ADJACENCYLIST = map<T, vector<list_help<T>>>;
+	using ADJACENCYLIST = vector<forward_list<list_help>>;
 	
-	template <typename T>
-	using ADJACENCYMATRIX = map<T, map<T, matrix_help>>;
+	using ADJACENCYMATRIX = vector<vector<matrix_help>>;
 
-	template <typename T, EdgeListType type>
+	template <EdgeListType type>
 	struct EDGELIST {
-		ADJACENCYLIST<T> edge_list;
+		ADJACENCYLIST edge_list;
 
-		vector<list_help<T>>& operator[](T vertex) { return edge_list[vertex];}
-		const vector<list_help<T>>& operator[](T vertex) const { return edge_list.at(vertex); }
-		ADJACENCYLIST<T>& operator()() { return edge_list; }
-		const ADJACENCYLIST<T>& operator()() const { return edge_list; }
-		EDGELIST<T, type>& operator=(const EDGELIST<T, type>& arg) { edge_list = arg(); return *this; }
+		forward_list<list_help>& operator[](size_t vertex) { return edge_list[vertex];}
+		const forward_list<list_help>& operator[](size_t vertex) const { return edge_list[vertex]; }
+		ADJACENCYLIST& operator()() { return edge_list; }
+		const ADJACENCYLIST& operator()() const { return edge_list; }
+		EDGELIST<type>& operator=(const EDGELIST<type>& arg) { edge_list = arg(); return *this; }
 	};
 
-	template <typename T>
-	struct EDGELIST<T, EdgeListType::MATRIX> {
-		ADJACENCYMATRIX<T> edge_list;
+	template <>
+	struct EDGELIST<EdgeListType::MATRIX> {
+		ADJACENCYMATRIX edge_list;
 
-		map<T, matrix_help>& operator[](T vertex) { return edge_list[vertex]; }
-		const map<T, matrix_help>& operator[](T vertex) const { return edge_list.at(vertex); }
-		ADJACENCYMATRIX<T>& operator()() { return edge_list; }
-		const ADJACENCYMATRIX<T>& operator()() const { return edge_list; }
-		EDGELIST<T, EdgeListType::MATRIX>& operator=(const EDGELIST<T, EdgeListType::MATRIX>& arg) { edge_list = arg(); return *this; }
+		vector<matrix_help>& operator[](size_t vertex) { return edge_list[vertex]; }
+		const vector<matrix_help>& operator[](size_t vertex) const { return edge_list[vertex]; }
+		ADJACENCYMATRIX& operator()() { return edge_list; }
+		const ADJACENCYMATRIX& operator()() const { return edge_list; }
+		EDGELIST<EdgeListType::MATRIX>& operator=(const EDGELIST<EdgeListType::MATRIX>& arg) { edge_list = arg(); return *this; }
 	};
 
 	//////////////////////////////////////////////////////////////////////////		class graph		///////////////////////////////////////////////////////////////////////////////////////////////
 
 	template <typename T, EdgeListType type = EdgeListType::LIST>
 	class graph {
+		map<size_t, T> class_table;
 		size_t vertex_num;
 		size_t edge_num;
 		bool is_directed;
 		bool is_weighted;
-		struct EDGELIST<T,type> edge_list;
+		struct EDGELIST<type> edge_list;
 
 	public:
 		void init(const char* path, bool isDirected = false, bool isWeighted = false);
 		map<string, bool> getPropBool() const;
 		map<string, size_t> getPropNum() const;
+		map<size_t, T> getClassTable() const;
 		void sort();
 		void printEdge() const;
-		struct EDGELIST<T, type>& getEdgeList();
-		const struct EDGELIST<T, type>& getEdgeList() const;
+		struct EDGELIST<type>& getEdgeList();
+		const struct EDGELIST<type>& getEdgeList() const;
 		graph(): vertex_num(0), edge_num(0), is_directed(false), is_weighted(false) {}
-		graph(size_t v_num, size_t e_num, bool is_d, bool is_w, const EDGELIST<T, type>& elist): 
-			vertex_num(v_num), edge_num(e_num), is_directed(is_d), is_weighted(is_w), edge_list(elist) {}
+		graph(size_t v_num, size_t e_num, bool is_d, bool is_w, const EDGELIST<type>& elist, const map<size_t, T> ct): 
+			vertex_num(v_num), edge_num(e_num), is_directed(is_d), is_weighted(is_w), edge_list(elist), class_table(ct) {}
 	};
 
 
@@ -110,70 +110,85 @@ namespace DataStructure {
 	void graph<T, type>::init(const char* path, bool isDirected, bool isWeighted)
 	{
 		std::ifstream fin(path);
-		set<T> verteces;
-		size_t v_num, e_num;
+		map<T, size_t> class_map;
 		T from, to;
+		size_t num = 0, F, T;
 		double weight;
 
 		is_directed = isDirected;
 		is_weighted = isWeighted;
 
-		fin >> v_num >> e_num;
+		fin >> vertex_num >> edge_num;
 
-		vertex_num = v_num;
-		edge_num = e_num;
 
-		
-		for (size_t i = 0; i < e_num; ++i) {
-			fin >> from >> to;
+		if constexpr (type == EdgeListType::MATRIX) {
+			edge_list().resize(vertex_num);
+			for (auto& v : edge_list()) {
+				v.resize(vertex_num, {false, 0});
+			}
 
-			verteces.insert(from);
-			verteces.insert(to);
+			for (size_t i = 0; i < edge_num; ++i) {
+				fin >> from >> to;
 
-			if constexpr (type == EdgeListType::MATRIX) {
+				if (class_map.find(from) == class_map.end()) {
+					class_map[from] = num++;
+				}
+				if (class_map.find(to) == class_map.end()) {
+					class_map[to] = num++;
+				}
+
+				F = class_map[from];
+				T = class_map[to];
+
 				if (is_weighted) {
 					fin >> weight;
-					edge_list[from][to].connected = true;
-					edge_list[from][to].weight = weight;
+					edge_list[F][T].connected = true;
+					edge_list[F][T].weight = weight;
 					if (!is_directed) {
-						edge_list[to][from].connected = true;
-						edge_list[to][from].weight = weight;
+						edge_list[T][F].connected = true;
+						edge_list[T][F].weight = weight;
 					}
 				}
 				else {
-					edge_list[from][to].connected = true;
+					edge_list[F][T].connected = true;
 					if (!is_directed) {
-						edge_list[to][from].connected = true;
-					}
-				}
-
-				for (auto& K : verteces) {
-					edge_list[K];
-				}
-
-				for (auto& [K, V] : edge_list()) {
-					for (auto& K : verteces) {
-						V[K];
+						edge_list[T][F].connected = true;
 					}
 				}
 			}
-			else {
-				if (is_weighted) {
-					fin >> weight;
-					edge_list[from].push_back({ to, weight });
-					if (!is_directed) edge_list[to].push_back({ from, weight });
+		}
+		else {
+			edge_list().resize(vertex_num);
+
+			for (size_t i = 0; i < edge_num; ++i) {
+				fin >> from >> to;
+
+				if (class_map.find(from) == class_map.end()) {
+					class_map[from] = num++;
 				}
-				else {
-					edge_list[from].push_back({ to });
-					if (!is_directed) edge_list[to].push_back({ from });
+				if (class_map.find(to) == class_map.end()) {
+					class_map[to] = num++;
 				}
 
-				for (auto& K : verteces) {
-					edge_list[K];
+				F = class_map[from];
+				T = class_map[to];
+
+				if (is_weighted) {
+					fin >> weight;
+					edge_list[F].push_front({ T, weight });
+					if (!is_directed) edge_list[F].push_front({ T, weight });
+				}
+				else {
+					edge_list[F].push_front({ T, 0 });
+					if (!is_directed) edge_list[T].push_front({ F, 0 });
 				}
 			}
 		}
 
+		for (auto& [k, v] : class_map) {
+			class_table[v] = k;
+		}
+		
 
 		fin.close();
 	}
@@ -190,13 +205,28 @@ namespace DataStructure {
 		return { {"vertex_num", vertex_num}, {"edge_num", edge_num} };
 	}
 
+	template<typename T, EdgeListType type>
+	map<size_t, T> graph<T,type>::getClassTable() const {
+		return class_table;
+	}
+
+
 	template <typename T, EdgeListType type>
 	void graph<T,type>::sort()
 	{
 		if constexpr (type == EdgeListType::MATRIX) return;
 		else {
-			for (auto& [V, L] : edge_list()) {
-				std::sort(L.begin(), L.end());
+			priority_queue<list_help> Q;
+			for (size_t i = 0; i < vertex_num; ++i) {
+				while (!edge_list[i].empty()) {
+					Q.push(edge_list[i].front());
+					edge_list[i].pop_front();
+				}
+
+				while (!Q.empty()) {
+					edge_list[i].push_front(Q.top());
+					Q.pop();
+				}
 			}
 		}
 	}
@@ -206,40 +236,43 @@ namespace DataStructure {
 	{
 		if constexpr (type == EdgeListType::MATRIX){
 			cout << "  ";
-			for (auto& [K, V] : edge_list()) {
-				cout << K << " ";
+			for (size_t i = 0; i < vertex_num; ++i) {
+				cout << class_table.at(i) << " ";
 			}
 			cout << endl;
 
-			for (auto& [K, V] : edge_list()) {
-				cout << K << " ";
-				for (auto& [T, B] : V) {
-					cout << B.connected << " ";
+			for (size_t i = 0; i < vertex_num; ++i) {
+				cout << class_table.at(i) << " ";
+				for (size_t j = 0; j < vertex_num; ++j) {
+					cout << edge_list[i][j].connected << " ";
 				}
 				cout << endl;
 			}
 		}
 		else {
-			for (auto& [K, V] : edge_list()) {
-				cout << K << ": ";
-				for (auto& T : V) {
-					cout << T.vertex << " ";
+			for (size_t i = 0; i < vertex_num; ++i) {
+				cout << class_table.at(i) << ": ";
+				auto iter = edge_list[i].begin();
+				while (iter != edge_list[i].end()) {
+					cout << class_table.at((*iter).vertex) << " ";
+					++iter;
 				}
 				cout << endl;
 			}
+
 		}
 	}
 
 	template <typename T, EdgeListType type>
-	struct EDGELIST<T, type>& graph<T, type>::getEdgeList() { return edge_list; }
+	struct EDGELIST<type>& graph<T, type>::getEdgeList() { return edge_list; }
 
 	template <typename T, EdgeListType type>
-	const struct EDGELIST<T, type>& graph<T, type>::getEdgeList() const { return edge_list; }
+	const struct EDGELIST<type>& graph<T, type>::getEdgeList() const { return edge_list; }
 
 	//////////////////////////////////////////////////////////////////////////		dfs derived		///////////////////////////////////////////////////////////////////////////////////////////////
-
-	template <typename T, EdgeListType type>
-	void dfsSubroutine(const EDGELIST<T,type>& edge_list, T vertex, map<T,bool>& visit, function<void(T)>& func, size_t& num, map<T, array<size_t, 2>>* pre_post = nullptr)
+	
+	template <EdgeListType type>
+	void dfsSubroutine(const EDGELIST<type>& edge_list, size_t vertex, vector<bool>& visit, function<void(size_t)>& func, size_t& num, vector<array<size_t, 2>>* pre_post = nullptr)
 	{
 		if (visit[vertex]) return;
 
@@ -250,13 +283,16 @@ namespace DataStructure {
 		if (pre_post != nullptr) (*pre_post)[vertex][0] = num++;
 
 		if constexpr (type == EdgeListType::MATRIX) {
-			for (auto& [K,V] : edge_list[vertex]) {
-				if (!visit[K] && V.connected) dfsSubroutine(edge_list, K, visit, func, num, pre_post);
+			for (size_t i = 0; i < edge_list[vertex].size(); ++i) {
+				if (!visit[i] && edge_list[vertex][i].connected) dfsSubroutine(edge_list, i, visit, func, num, pre_post);
 			}
 		}
 		else {
-			for (auto& V : edge_list[vertex]) {
-				if (!visit[V.vertex]) dfsSubroutine(edge_list, V.vertex, visit, func, num, pre_post);
+			auto iter = edge_list[vertex].begin();
+			
+			while (iter != edge_list[vertex].end()) {
+				if (!visit[(*iter).vertex]) dfsSubroutine(edge_list, (*iter).vertex, visit, func, num, pre_post);
+				++iter;
 			}
 		}
 
@@ -264,19 +300,17 @@ namespace DataStructure {
 	}
 
 	template <typename T, EdgeListType type>
-	void dfs(const graph<T, type>& G, const vector<T>& ud_order = vector<T>(), map<T, array<size_t, 2>>* pre_post = nullptr, function<void(T)> func = nullptr)
+	void dfs(const graph<T, type>& G, const vector<size_t>& ud_order = vector<size_t>(), vector<array<size_t, 2>>* pre_post = nullptr, function<void(size_t)> func = nullptr)
 	{
-		map<T, bool> visit;
-		const EDGELIST<T, type>& edge_list = G.getEdgeList();
+		vector<bool> visit;
+		const EDGELIST<type>& edge_list = G.getEdgeList();
 		size_t num = 1;
-
-		for (auto& [K, V] : edge_list()) {
-			visit[K] = false;
-		}
+		size_t v_num = edge_list().size();
+		visit.resize(v_num, false);
 
 		if (ud_order.size() == 0) {
-			for (auto& [K, V] : edge_list()) {
-				if (!visit[K]) dfsSubroutine(edge_list, K, visit, func, num, pre_post);
+			for (size_t i = 0; i < v_num; ++i) {
+				if (!visit[i]) dfsSubroutine(edge_list, i, visit, func, num, pre_post);
 			}
 		}
 		else {
@@ -285,26 +319,26 @@ namespace DataStructure {
 			}
 		}
 	}
-
+	
 	template <typename T, EdgeListType type>
-	vector<vector<T>> CC(const graph<T, type>& G, const vector<T>& ud_order = vector<T>(), bool print = false)
+	vector<vector<size_t>> CC(const graph<T, type>& G, const vector<size_t>& ud_order = vector<size_t>(), bool print = false)
 	{
-		map<T, bool> visit;
-		const EDGELIST<T, type>& edge_list = G.getEdgeList();
-		vector<vector<T>> ccs;
-		vector<T> cc;
+		vector<bool> visit;
+		const EDGELIST<type>& edge_list = G.getEdgeList();
+		vector<vector<size_t>> ccs;
+		vector<size_t> cc;
 		size_t dummy;
+		map<size_t, T> class_table = G.getClassTable();
 
-		for (auto& [K, V] : edge_list()) {
-			visit[K] = false;
-		}
+		size_t v_num = edge_list().size();
+		visit.resize(v_num, false);
 
-		function<void(T)> func = [&cc](T vertex) {cc.push_back(vertex); };
+		function<void(size_t)> func = [&cc](size_t vertex) {cc.push_back(vertex); };
 
 		if (ud_order.size() == 0) {
-			for (auto& [K, V] : edge_list()) {
-				if (!visit[K]) {
-					dfsSubroutine(edge_list, K, visit, func, dummy);
+			for (size_t i = 0; i < v_num; ++i) {
+				if (!visit[i]) {
+					dfsSubroutine(edge_list, i, visit, func, dummy);
 					std::sort(cc.begin(), cc.end());
 					ccs.push_back(cc);
 					cc.clear();
@@ -326,7 +360,7 @@ namespace DataStructure {
 			cout << "connected components" << endl;
 			for (auto& C : ccs) {
 				for (auto& V : C) {
-					cout << V << " ";
+					cout << class_table[V] << " ";
 				}
 				cout << endl;
 			}
@@ -334,9 +368,9 @@ namespace DataStructure {
 
 		return ccs;
 	}
-
-	template <typename T, EdgeListType type>
-	void topolgySubroutine(const EDGELIST<T, type>& edge_list, T vertex, map<T, bool>& visit, stack<T>& order, bool& is_sink)
+	
+	template <EdgeListType type>
+	void topolgySubroutine(const EDGELIST<type>& edge_list, size_t vertex, vector<bool>& visit, stack<size_t>& order, bool& is_sink)
 	{
 		if (visit[vertex]) return;
 
@@ -345,15 +379,20 @@ namespace DataStructure {
 		size_t cnt = 0;
 
 		if constexpr (type == EdgeListType::MATRIX) {
-			for (auto& [K, V] : edge_list[vertex]) {
-				if (!visit[K] && V.connected) topolgySubroutine(edge_list, K, visit, order, is_sink);
-				++cnt;
+			for (size_t i = 0; i < edge_list[vertex].size(); ++i) {
+				if (!visit[i] && edge_list[vertex][i].connected) {
+					topolgySubroutine(edge_list, i, visit, order, is_sink);
+					++cnt;
+				}
 				if (is_sink) break;
 			}
 		}
 		else {
-			for (auto& V : edge_list[vertex]) {
-				if (!visit[V.vertex]) topolgySubroutine(edge_list, V.vertex, visit,  order, is_sink);
+			auto iter = edge_list[vertex].begin();
+
+			while (iter != edge_list[vertex].end()) {
+				if (!visit[(*iter).vertex]) topolgySubroutine(edge_list, (*iter).vertex, visit, order, is_sink);
+				++iter;
 				++cnt;
 				if (is_sink) break;
 			}
@@ -365,72 +404,65 @@ namespace DataStructure {
 	}
 
 	template <typename T, EdgeListType type>
-	stack<T> topology(const graph<T, type>& G)
+	stack<size_t> topology(const graph<T, type>& G)
 	{
-		T source = T();
+		size_t source = 0;
 		size_t max = 0;
-		map<T, bool> visit;
-		const EDGELIST<T, type>& edge_list = G.getEdgeList();
-		map<T, array<size_t, 2>> visit_order;
-		stack<T> order;
+		vector<bool> visit;
+		const EDGELIST<type>& edge_list = G.getEdgeList();
+		vector<array<size_t, 2>> visit_order;
+		stack<size_t> order;
 		bool is_sink = false;
+		size_t v_num = edge_list().size();
 
-		function<void(T)> func = [](T arg) {};
+		visit_order.resize(v_num);
+		function<void(size_t)> func = [](size_t arg) {};
 		dfs(G, {}, &visit_order, func);
 
-		for (auto& [K, V] : visit_order) {
-			if (V[1] > max) {
-				max = V[1];
-				source = K;
+		for (size_t i = 0; i < v_num; ++i) {
+			if (visit_order[i][1] > max) {
+				max = visit_order[i][1];
+				source = i;
 			}
 		}
 
-		for (auto& [K, V] : edge_list()) {
-			visit[K] = false;
-		}
+		visit.resize(v_num, false);
 
 		topolgySubroutine(edge_list, source, visit, order, is_sink);
 
 		return order;
 	}
-
+	
 	template <typename T, EdgeListType type>
-	EDGELIST<T, type> reverseGraph(const graph<T, type>& G) 
+	EDGELIST<type> reverseGraph(const graph<T, type>& G) 
 	{
-		EDGELIST<T, type> reverse;
-		const EDGELIST<T, type>& edge_list = G.getEdgeList();
-		set<T> verteces;
+		EDGELIST<type> reverse;
+		const EDGELIST<type>& edge_list = G.getEdgeList();
+		size_t v_num = edge_list().size();
 
 		if constexpr (type == EdgeListType::MATRIX) {
-			for (auto& [KF, VF] : edge_list()) {
-				verteces.insert(KF);
-				for (auto& [KT, VT] : VF) {
-					reverse[KT][KF] = VT;
-					verteces.insert(KT);
-				}
+
+			reverse().resize(v_num);
+			for (auto& v : reverse()) {
+				v.resize(v_num);
 			}
 
-			for (auto& K : verteces) {
-				reverse[K];
-			}
-
-			for (auto& [K, V] : reverse()) {
-				for (auto& K : verteces) {
-					V[K];
+			for (size_t i = 0; i < v_num; ++i) {
+				for (size_t j = 0; j < v_num; ++j) {
+					reverse[j][i] = edge_list[i][j];
 				}
 			}
 		}
 		else {
-			for (auto& [KF, VF] : edge_list()) {
-				verteces.insert(KF);
-				for (auto& VT : VF) {
-					reverse[VT.vertex].push_back({ KF, (VT.weight) });
-					verteces.insert(VT.vertex);
-				}
-			}
 
-			for (auto& K : verteces) {
-				reverse[K];
+			reverse().resize(v_num);
+
+			for (size_t i = 0; i < v_num; ++i) {
+				auto iter = edge_list[i].begin();
+				while (iter != edge_list[i].end()) {
+					reverse[iter->vertex].push_front({ i, iter->weight });
+					++iter;
+				}
 			}
 		}
 
@@ -438,69 +470,74 @@ namespace DataStructure {
 	}
 
 	template <typename T, EdgeListType type>
-	vector<vector<T>> SCC(const graph<T, type>& G, bool print = false)
+	vector<vector<size_t>> SCC(const graph<T, type>& G, bool print = false)
 	{
-		map<T, bool> visit;
-		const EDGELIST<T, type>& edge_list = G.getEdgeList();
+		vector<bool> visit;
+		const EDGELIST<type>& edge_list = G.getEdgeList();
 		size_t num = 1;
-		map<T, array<size_t, 2>> visit_order;
-		vector<T> ud_order;
+		vector<array<size_t, 2>> visit_order;
+		vector<size_t> ud_order;
+		size_t v_num = edge_list().size();
 
-		const EDGELIST<T, type>& reverseE = reverseGraph(G);
+		const EDGELIST<type>& reverseE = reverseGraph(G);
 		auto Gpb = G.getPropBool();
 		auto Gpn = G.getPropNum();
+		auto ct = G.getClassTable();
 
-		for (auto& [K, V] : edge_list()) {
-			visit[K] = false;
-		}
+		visit.resize(v_num, false);
+		visit_order.resize(v_num);
 
-		graph<T, type> reverseG = { Gpn["vertex_num"], Gpn["edge_num"], Gpb["is_directed"], Gpb["is_weighted"], reverseE };
+		graph<T, type> reverseG = { Gpn["vertex_num"], Gpn["edge_num"], Gpb["is_directed"], Gpb["is_weighted"], reverseE, ct };
 
 		dfs(reverseG, {}, &visit_order);
 
 		ud_order.reserve(Gpn["vertex_num"]);
 
-		for (auto& [K, V] : visit_order) {
+		for (size_t k = 0; k < v_num; ++k) {
 			auto i = ud_order.begin();
 			for (; i != ud_order.end(); ++i) {
-				if (visit_order[*i][1] < V[1]) break;
+				if (visit_order[*i][1] < visit_order[k][1]) break;
 			}
 
-			ud_order.insert(i, K);
+			ud_order.insert(i, k);
 		}
+
+		
 
 		return CC(G, ud_order, print);
 
 	}
-
-	template <typename T, EdgeListType type>
-	void BCCSubroutine(const EDGELIST<T, type>& edge_list, T vertex, T parent, map<T,size_t>& dfn, map<T, size_t>& low, size_t& num, vector<set<T>>& bcc, stack<array<T,2>>& stack_ )
+	
+	template <EdgeListType type>
+	void BCCSubroutine(const EDGELIST<type>& edge_list, size_t vertex, size_t parent, vector<size_t>& dfn, vector<size_t>& low, size_t& num, vector<set<size_t>>& bcc, stack<array<size_t,2>>& stack_ )
 	{
 		dfn[vertex] = low[vertex] = num++;
+		
 
 		if constexpr (type == EdgeListType::MATRIX) {
-			for (auto& [K, V] : edge_list[vertex]) {
-				if (V.connected && dfn[K] == 0) {
-					stack_.push({ vertex, K });
+			for (size_t i = 0; i < edge_list[vertex].size(); ++i) {
+				if (edge_list[vertex][i].connected && dfn[i] == 0) {
+					stack_.push({ vertex, i });
 
-					BCCSubroutine(edge_list, K, vertex, dfn, low, num, bcc, stack_);
+					BCCSubroutine(edge_list, i, vertex, dfn, low, num, bcc, stack_);
 
-					low[vertex] = low[vertex] > low[K] ? low[K] : low[vertex];
+					low[vertex] = low[vertex] > low[i] ? low[i] : low[vertex];
 
-					if (low[K] >= dfn[vertex]) {
+					if (low[i] >= dfn[vertex]) {
 						bcc.push_back({});
-						size_t i = bcc.size() - 1;
-						array<T, 2> temp;
+						size_t j = bcc.size() - 1;
+						array<size_t, 2> temp;
 						do {
 							temp = stack_.top();
 							stack_.pop();
-							bcc[i].insert(temp[0]);
-							bcc[i].insert(temp[1]);
-						} while (temp[0] != vertex && temp[1] != K);
+							bcc[j].insert(temp[0]);
+							bcc[j].insert(temp[1]);
+
+						} while (temp[0] != vertex && temp[1] != i);
 					}
 				}
-				else if (V.connected && K != parent) {
-					low[vertex] = low[vertex] > dfn[K] ? dfn[K] : low[vertex];
+				else if (edge_list[vertex][i].connected && i != parent) {
+					low[vertex] = low[vertex] > dfn[i] ? dfn[i] : low[vertex];
 				}
 			}
 		}
@@ -516,7 +553,7 @@ namespace DataStructure {
 					if (low[V.vertex] >= dfn[vertex]) {
 						bcc.push_back({});
 						size_t i = bcc.size() - 1;
-						array<T, 2> temp;
+						array<size_t, 2> temp;
 						do {
 							temp = stack_.top();
 							stack_.pop();
@@ -533,32 +570,40 @@ namespace DataStructure {
 	}
 
 	template <typename T, EdgeListType type>
-	vector<set<T>> BCC(const graph<T, type> G, T root_parent = NULL, bool print = false)
+	vector<set<size_t>> BCC(const graph<T, type> G, T root_parent = NULL, bool print = false)
 	{
-		const EDGELIST<T, type>& edge_list = G.getEdgeList();
+		const EDGELIST<type>& edge_list = G.getEdgeList();
 		size_t num = 1;
-		map<T, size_t> dfn;
-		map<T, size_t> low;
-		vector<set<T>> bcc;
-		stack<array<T, 2>> stack_;
+		vector<size_t> dfn;
+		vector<size_t> low;
+		vector<set<size_t>> bcc;
+		stack<array<size_t, 2>> stack_;
+		size_t v_num = edge_list().size();
 
-		for (auto& [K, V] : edge_list()) {
-			dfn[K] = 0;
-			low[K] = 0;
+		dfn.resize(v_num);
+		low.resize(v_num);
+
+		for (size_t i = 0; i < v_num; ++i) {
+			dfn[i] = 0;
+			low[i] = 0;
 		}
 
-		for (auto& [K, V] : edge_list()) {
-			if (dfn[K] == 0) {
-				BCCSubroutine(edge_list, K, root_parent, dfn, low, num, bcc, stack_);
+		for (size_t i = 0; i < v_num; ++i) {
+			if (dfn[i] == 0) {
+				BCCSubroutine(edge_list, i, root_parent, dfn, low, num, bcc, stack_);
 				while (!stack_.empty()) stack_.pop();
 			}
 		}
 
+		
+
+
 		if (print) {
+			auto ct = G.getClassTable();
 			cout << "biconnected component" << endl;
 			for (auto& S : bcc) {
 				for (auto& V : S) {
-					cout << V << " ";
+					cout << ct[V] << " ";
 				}
 				cout << endl;
 			}
@@ -568,19 +613,18 @@ namespace DataStructure {
 	}
 
 	//////////////////////////////////////////////////////////////////////////		bfs derived		///////////////////////////////////////////////////////////////////////////////////////////////
-
+	
 	template <typename T, EdgeListType type>
-	void bfs(const graph<T, type>& G, T S, function<void(T)> func = nullptr)
+	void bfs(const graph<T, type>& G, size_t S, function<void(size_t)> func = nullptr)
 	{
-		map<T, size_t> dist;
-		const EDGELIST<T, type>& edge_list = G.getEdgeList();
-		queue<T> Q;
-		T u;
-		size_t dist_max = std::numeric_limits<size_t>::max();
+		vector<size_t> dist;
+		const EDGELIST<type>& edge_list = G.getEdgeList();
+		queue<size_t> Q;
+		size_t u;
+		constexpr size_t dist_max = std::numeric_limits<size_t>::max();
+		size_t v_num = edge_list().size();
 
-		for (auto& [K, V] : edge_list()) {
-			dist[K] = dist_max;
-		}
+		dist.resize(v_num, dist_max);
 
 		Q.push(S);
 		dist[S] = 0;
@@ -593,10 +637,10 @@ namespace DataStructure {
 			
 
 			if constexpr (type == EdgeListType::MATRIX) {
-				for (auto& [K, V] : edge_list[u]) {
-					if (dist[K] == dist_max && V.connected) {
-						Q.push(K);
-						dist[K] = dist[u] + 1;
+				for (size_t i = 0; i < v_num; ++i) {
+					if (edge_list[u][i].connected && dist[i] == dist_max) {
+						Q.push(i);
+						dist[i] = dist[u] + 1;
 					}
 				}
 			}
@@ -610,62 +654,49 @@ namespace DataStructure {
 			}
 		}
 	}
-
-	template <typename T>
+	
 	struct sssp {
-		map<T, T> prev;
-		map<T, double> dist;
-		sssp(const map<T, T>& p, const map<T, double>& d) : prev(p), dist(d) {}
+		vector<size_t> prev;
+		vector<double> dist;
+		sssp(const vector<size_t>& p, const vector<double>& d) : prev(p), dist(d) {}
 	};
 
 	template <typename T, EdgeListType type>
-	sssp<T> dijkstra(const graph<T, type>& G, T S, T null_value = NULL)
+	sssp dijkstra(const graph<T, type>& G, size_t S, size_t null_value = NULL)
 	{
+		vector<double> dist;
+		vector<size_t> prev;
 
-		struct Qelement {
-			T vertex;
-			double distance;
-			Qelement() : vertex(NULL), distance(0) {}
-			Qelement(const T v, const double d) : vertex(v), distance(d) {}
-			bool operator< (const Qelement& other) { return distance < other.distance; }
-			bool operator== (const Qelement & other) { return vertex < other.vertex; }
-			Qelement& operator= (const Qelement& other) { vertex = other.vertex; distance = other.distance; return *this; }
-		};
+		size_t u;
+		const EDGELIST<type>& edge_list = G.getEdgeList();
+		vector<size_t> Q;
+		constexpr double dist_max = std::numeric_limits<double>::max();
+		size_t v_num = edge_list().size();
 
-		map<T, double> dist;
-		map<T, T> prev;
-		//start
-		T u;
-		const EDGELIST<T, type>& edge_list = G.getEdgeList();
-		vector<T> Q;
-		double dist_max = std::numeric_limits<double>::max();
-
-		for (auto& [K, V] : edge_list()) {
-			dist[K] = dist_max;
-			prev[K] = null_value;
-		}
+		dist.resize(v_num, dist_max);
+		prev.resize(v_num, null_value);
 		
 		dist[S] = 0;
 
-		Q.reserve(dist.size());
+		Q.reserve(v_num);
 
-		for (auto& [K, V] : dist) {
-			Q.push_back(K);
+		for (size_t i = 0; i < v_num; ++i) {
+			Q.push_back(i);
 		}
 
 		while (!Q.empty()) {
 
-			auto min_iter = std::min_element(Q.begin(), Q.end(), [&dist](const T& arg1, const T& arg2) {return dist[arg1] < dist[arg2]; });
+			auto min_iter = std::min_element(Q.begin(), Q.end(), [&dist](const size_t& arg1, const size_t& arg2) {return dist[arg1] < dist[arg2]; });
 			u = *min_iter;
 			Q.erase(min_iter);
 
 			if constexpr (type == EdgeListType::MATRIX) {
-				for (auto& [K, V] : edge_list[u]) {
+				for (size_t i = 0; i < v_num; ++i) {
 
-					auto iter = std::find(Q.begin(), Q.end(), K);
-					if (V.connected && iter != Q.end() && dist[K] > dist[u] + V.weight) {
-						dist[K] = dist[u] + V.weight;
-						prev[K] = u;
+					auto iter = std::find(Q.begin(), Q.end(), i);
+					if (edge_list[u][i].connected && iter != Q.end() && dist[i] > dist[u] + edge_list[u][i].weight) {
+						dist[i] = dist[u] + edge_list[u][i].weight;
+						prev[i] = u;
 					}
 				}
 			}
@@ -683,38 +714,37 @@ namespace DataStructure {
 		
 		return { prev, dist };
 	}
-
+	
 	template <typename T, EdgeListType type>
-	sssp<T> Bellman_Ford(const graph<T, type>& G, T S, T null_value = NULL)
+	sssp Bellman_Ford(const graph<T, type>& G, size_t S, size_t null_value = NULL)
 	{
-		map<T, double> dist;
-		map<T, T> prev;
+		vector<double> dist;
+		vector<size_t> prev;
 
-		const EDGELIST<T, type>& edge_list = G.getEdgeList();
-		double dist_max = std::numeric_limits<double>::max();
+		const EDGELIST<type>& edge_list = G.getEdgeList();
+		constexpr double dist_max = std::numeric_limits<double>::max();
+		size_t v_num = edge_list().size();
 
-		for (auto& [K, V] : edge_list()) {
-			dist[K] = dist_max;
-			prev[K] = null_value;
-		}
+		dist.resize(v_num, dist_max);
+		prev.resize(v_num, null_value);
 
 		dist[S] = 0;
 
-		for (auto& [K, V] : edge_list()) {
+		for (size_t k = 0; k < v_num; ++k) {
 
 			if constexpr (type == EdgeListType::MATRIX) {
-				for (auto& [T, W] : V) {
-					if (W.connected && dist[T] > dist[K] + W.weight) {
-						dist[T] = dist[K] + W.weight;
-						prev[T] = K;
+				for (size_t i = 0; i < edge_list[k].size(); ++i) {
+					if (edge_list[k][i].connected && dist[i] > dist[k] + edge_list[k][i].weight) {
+						dist[i] = dist[k] + edge_list[k][i].weight;
+						prev[i] = k;
 					}
 				}
 			}
 			else {
-				for (auto& W : V) {
-					if (dist[W.vertex] > dist[K] + W.weight) {
-						dist[W.vertex] = dist[K] + W.weight;
-						prev[W.vertex] = K;
+				for (auto& W : edge_list[k]) {
+					if (dist[W.vertex] > dist[k] + W.weight) {
+						dist[W.vertex] = dist[k] + W.weight;
+						prev[W.vertex] = k;
 					}
 				}
 			}
@@ -725,68 +755,62 @@ namespace DataStructure {
 	}
 	
 	template <typename T, EdgeListType type>
-	map<T, map<T, double>> Floyd(const graph<T, type>& G, bool print = false)
+	vector<vector<double>> Floyd(const graph<T, type>& G, bool print = false)
 	{
-		const EDGELIST<T, type>& edge_list = G.getEdgeList();
-		double dist_max = std::numeric_limits<double>::max();
-		map<T, map<T, double>> dist;
-		set<T> verteces;
+		const EDGELIST<type>& edge_list = G.getEdgeList();
+		constexpr double dist_max = std::numeric_limits<double>::max();
+		vector<vector<double>> dist;
+		size_t v_num = edge_list().size();
+
+		dist.resize(v_num,vector<double>(v_num, dist_max));
 		
 
 		if constexpr (type == EdgeListType::MATRIX) {
-			for (auto& [KF, KV] : edge_list()) {
-				verteces.insert(KF);
-				for (auto& [KT, VT] : KV) {
-					if (KF == KT) dist[KF][KT] = 0;
-					else if (VT.connected) dist[KF][KT] = VT.weight;
-					else dist[KF][KT] = dist_max;
+			for (size_t i = 0; i < v_num; ++i) {
+				for (size_t j = 0; j < v_num; ++j) {
+					if (i == j) {
+						dist[i][j] = 0;
+						continue;
+					}
+					if (!edge_list[i][j].connected) {
+						continue;
+					}
+					dist[i][j] = edge_list[i][j].weight;
 				}
-			
 			}
 		}
 		else {
-			for (auto& [KF, KV] : edge_list()) {
-				verteces.insert(KF);
-				for (auto& VT : KV) {
-					verteces.insert(VT.vertex);
-					dist[KF][VT.vertex] = VT.weight;
-				}
-			}
-
-			for (auto& K : verteces) {
-				dist[K];
-			}
-
-			for (auto& [KF, V] : dist) {
-				for (auto& KT : verteces) {
-					if (KF == KT) V[KT] = 0;
-					if (V.find(KT) == V.end()) V[KT] = dist_max;
+			for (size_t i = 0; i < v_num; ++i) {
+				dist[i][i] = 0;
+				for (auto& v : edge_list[i]) {
+					dist[i][v.vertex] = v.weight;
 				}
 			}
 		}
 
 
-		for (auto& K : verteces) {
-			for (auto& I : verteces) {
-				for (auto& J : verteces) {
-					if (I == K || J == K || I == J) continue;
-					if (dist[I][J] > dist[I][K] + dist[K][J])
-						dist[I][J] = dist[I][K] + dist[K][J];
+		for (size_t k = 0; k < v_num; ++k) {
+			for (size_t i = 0; i < v_num; ++i) {
+				for (size_t j = 0; j < v_num; ++j) {
+					if (i == k || j == k || i == j) continue;
+					if (dist[i][j] > dist[i][k] + dist[k][j])
+						dist[i][j] = dist[i][k] + dist[k][j];
 				}
 			}
 		}
-
+		
 		if (print) {
+			auto class_table = G.getClassTable();
 			cout << "  ";
-			for (auto& [K, V] : dist) {
-				cout << K << " ";
+			for (size_t i = 0; i < v_num; ++i) {
+				cout << class_table.at(i) << " ";
 			}
 			cout << endl;
 
-			for (auto& [K, V] : dist) {
-				cout << K << " ";
-				for (auto& [T, B] : V) {
-					cout << B << " ";
+			for (size_t i = 0; i < v_num; ++i) {
+				cout << class_table.at(i) << " ";
+				for (size_t j = 0; j < v_num; ++j) {
+					cout << dist[i][j] << " ";
 				}
 				cout << endl;
 			}
@@ -795,5 +819,6 @@ namespace DataStructure {
 		return dist;
 
 	}
+	
 }
 #endif
