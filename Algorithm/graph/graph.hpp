@@ -634,10 +634,10 @@ namespace DataStructure {
 
 		map<T, double> dist;
 		map<T, T> prev;
-
-		Qelement u;
+		//start
+		T u;
 		const EDGELIST<T, type>& edge_list = G.getEdgeList();
-		vector<Qelement> Q;
+		vector<T> Q;
 		double dist_max = std::numeric_limits<double>::max();
 
 		for (auto& [K, V] : edge_list()) {
@@ -650,35 +650,31 @@ namespace DataStructure {
 		Q.reserve(dist.size());
 
 		for (auto& [K, V] : dist) {
-			Q.push_back({ K, V });
+			Q.push_back(K);
 		}
 
-
 		while (!Q.empty()) {
-			auto min_iter = std::min_element(Q.begin(), Q.end());
+
+			auto min_iter = std::min_element(Q.begin(), Q.end(), [&dist](const T& arg1, const T& arg2) {return dist[arg1] < dist[arg2]; });
 			u = *min_iter;
 			Q.erase(min_iter);
-			
 
 			if constexpr (type == EdgeListType::MATRIX) {
-				for (auto& [K, V] : edge_list[u.vertex]) {
+				for (auto& [K, V] : edge_list[u]) {
 
-					auto iter = std::find(Q.begin(), Q.end(), { K, 0 });
-					std::find()
-					if (V.connected && iter != Q.end() && dist[K] > dist[u.vertex] + V.wieght) {
-						dist[K] = dist[u.vertex] + V.wieght;
-						prev[K] = u.vertex;
-						iter->distance = dist[K];
+					auto iter = std::find(Q.begin(), Q.end(), K);
+					if (V.connected && iter != Q.end() && dist[K] > dist[u] + V.weight) {
+						dist[K] = dist[u] + V.weight;
+						prev[K] = u;
 					}
 				}
 			}
 			else {
 				for (auto& V : edge_list[u]) {
-					auto iter = std::find(Q.begin(), Q.end(), { V.vertex, 0 });
-					if (iter != Q.end() && dist[V.vertex] > dist[u] + V.wieght) {
-						dist[V.vertex] = dist[u] + V.wieght;
+					auto iter = std::find(Q.begin(), Q.end(), V.vertex);
+					if (iter != Q.end() && dist[V.vertex] > dist[u] + V.weight) {
+						dist[V.vertex] = dist[u] + V.weight;
 						prev[V.vertex] = u;
-						iter->distance = dist[V.vertex];
 					}
 				}
 			}
