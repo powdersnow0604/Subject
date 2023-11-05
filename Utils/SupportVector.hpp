@@ -1,3 +1,5 @@
+//c++ 17
+
 #ifndef __SUPPORTVECTOR__
 #define __SUPPORTVECTOR__
 
@@ -6,6 +8,8 @@
 #include <iostream>
 #include <type_traits>
 #include <cmath>
+#include <random>
+#include <map>
 
 using std::vector;
 using std::function;
@@ -493,8 +497,9 @@ namespace SupportVector {
 	template <typename T>
 	vector<T> loc(const vector<T>& vec, size_t start, size_t end, size_t interval)
 	{
-		if (start < 0 || end < 0 || interval == 0 || start > vec.size() - 1 || end > vec.size() - 1 || 
-			(interval > 0 && end < start) || (interval < 0 && end > start)) return vec;
+		if (start < 0 || end < 0 || interval == 0 || start > vec.size() || end > vec.size() || 
+			(interval > 0 && end < start) || (interval < 0 && end > start)) return {};
+
 
 		vector<T> res;
 		res.reserve((end - start) / interval);
@@ -655,6 +660,92 @@ namespace SupportVector {
 		}*/
 	}
 
+
+	template<typename T>
+	vector<T> concatenate(std::initializer_list<std::vector<T>>&& list)
+	{
+		vector<T> res;
+
+		for (auto iter = list.begin(); iter != list.end(); ++iter) {
+			res.insert(res.end(), iter->begin(), iter->end());
+		}
+
+		return res;
+	}
+
+	template<typename T>
+	void concatenate(vector<T>& vec, std::initializer_list<std::vector<T>>&& list)
+	{
+		for (auto iter = list.begin(); iter != list.end(); ++iter) {
+			vec.insert(vec.end(), iter->begin(), iter->end());
+		}
+	}
+
+
+	template<typename T>
+	vector<T> shuffle(vector<T>& vec, bool inline_ = true)
+	{
+		std::mt19937 gen{ std::random_device()() };
+		std::uniform_int_distribution<size_t> dist;
+		std::uniform_int<size_t>::param_type params;
+		size_t randnum;
+		T temp;
+
+		if (inline_) {
+			for (size_t i = vec.size() - 1; i > 0; --i) {
+				params._Init(0, i);
+				dist.param(params);
+				randnum = dist(gen);
+
+				temp = vec[i];
+				vec[i] = vec[randnum];
+				vec[randnum] = temp;
+			}
+
+			return {};
+		}
+		else {
+			vector<T> res = vec;
+			for (size_t i = res.size() - 1; i > 0; --i) {
+				params._Init(0, i);
+				dist.param(params);
+				randnum = dist(gen);
+
+				temp = res[i];
+				res[i] = res[randnum];
+				res[randnum] = temp;
+			}
+
+			return res;
+		}
+	}
+
+
+	template<typename T>
+	std::map<T, size_t> count(const vector<T>& vec)
+	{
+		std::map<T, size_t> levels;
+
+		for (size_t i = 0; i < vec.size(); ++i) {
+			++levels[vec[i]];
+		}
+
+		return levels;
+	}
+
+
+	template<typename T>
+	bool is_homogeneous(const vector<T>& vec)
+	{
+		if (vec.size() == 0) return true;
+
+		T first = vec[0];
+		for (size_t i = 1; i < vec.size(); ++i) {
+			if (first != vec[i]) return false;
+		}
+
+		return true;
+	}
 };
 
 #endif

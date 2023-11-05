@@ -1,8 +1,8 @@
 #ifndef __MODEL_BASE__
 #define __MODEL_BASE__ 
 
-#include <vector>
 #include "DataModel.h"
+using namespace BasicAi::DataModels;
 
 namespace BasicAi {
 	class model {

@@ -20,9 +20,14 @@ namespace BasicAi {
 			size_t size;
 
 			InputModel(std::initializer_list<std::vector<double>>&& list);	
-			InputModel(const std::vector<std::vector<double>>& list);	
+			InputModel(const std::vector<std::vector<double>>& list);
+			InputModel(const std::shared_ptr<Vector2D>& list);
+			InputModel();
 
-			std::vector<double>& operator[](size_t i) const;
+			const std::vector<double>& operator[](size_t i) const;
+			std::vector<double>& operator[](size_t i);
+			const Vector2D& get() const;
+			Vector2D& get();
 		};
 
 		class TargetModel {
@@ -32,8 +37,13 @@ namespace BasicAi {
 
 			TargetModel(std::initializer_list<double>&& list);	
 			TargetModel(const std::vector<double>& list);	
+			TargetModel(const std::shared_ptr<Vector>& list);
+			TargetModel();
 
-			double& operator[](size_t) const;
+			const double& operator[](size_t) const;
+			double& operator[](size_t);
+			const Vector& get() const;
+			Vector& get();
 		};
 
 		class DataModel {
@@ -42,13 +52,19 @@ namespace BasicAi {
 			std::shared_ptr<std::vector<double>> target;
 			size_t size;
 
-			DataModel(TargetModel& t, InputModel& i); 
+			DataModel(InputModel& i, TargetModel& t);
 			DataModel(const std::vector<std::vector<double>>& _input, const std::vector<double>& _target);
-			DataModel(): size(0) {}
+			DataModel();
 
 			DataModel& operator= (const DataModel& other);
-			std::vector<double>& operator[](size_t) const;
-			double& operator()(size_t) const;
+			std::vector<double>& operator[](size_t);
+			double& operator()(size_t);
+			const std::vector<double>& operator[](size_t) const;
+			const double& operator()(size_t) const;
+			const Vector2D& getInput() const;
+			const Vector& getTarget() const;
+			Vector2D& getInput();
+			Vector& getTarget();
 		};
 
 

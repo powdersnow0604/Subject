@@ -18,9 +18,13 @@ namespace BasicAi {
 
 		void NaiveBayes::fit(const DataModel& Dm)
 		{
+			dist.clear();
+			prior.clear();
+			norm_term.clear();
+			p_res_value.clear();
+
 			size_t noc = 1;
 			size_t noc_temp;
-			//vector<std::set<double>> dset;
 			Vector2D dset;
 			Vector2D temp_d;
 			dset.resize(Dm[0].size());
@@ -29,7 +33,6 @@ namespace BasicAi {
 				if (dist[Dm(i)].size() == 0) dist[Dm(i)].resize(Dm[0].size());
 				for (size_t j = 0; j<Dm[0].size(); ++j) {
 					++dist[Dm(i)][j][Dm[i][j]];
-					//dset[j].insert(Dm[i][j]);
 					insert(dset[j], Dm[i][j]);
 				}
 
@@ -53,8 +56,8 @@ namespace BasicAi {
 
 
 			for (size_t i = 0; i < temp_d.size(); ++i) {
-				if (norm_term[temp_d[i]] == 0.) continue;
-				norm_term[temp_d[i]] /= Dm.size; // / norm_term[temp_d[i]];
+				//if (norm_term[temp_d[i]] == 0.) continue;
+				norm_term[temp_d[i]]; // /= Dm.size;
 			}
 
 
@@ -67,6 +70,7 @@ namespace BasicAi {
 				}
 			}*/
 
+			/*
 			for (auto& [level, v] : dist) {
 				for (size_t i = 0; i< v.size(); ++i) {
 					for (auto& df_list : dset[i]) {
@@ -80,10 +84,13 @@ namespace BasicAi {
 			for (auto& [k, v] : prior) {
 				v /= Dm.size;
 			}
+			*/
+
+			size = Dm.size;
 			
 		}
 
-		Vector NaiveBayes::predict(const InputModel& In)
+		Vector NaiveBayes::predict(const InputModel& In, bool update)
 		{
 			double max_class;
 			double max_value;
@@ -104,15 +111,25 @@ namespace BasicAi {
 							product = 0;
 							break;
 						}
-						product *= df[j][In[i][j]];
+						product *= df[j][In[i][j]] / prior[level]; //
 					}
 					
-					product *= prior[level];
+					product *= prior[level] / size; //
 
 					if (max_value < product) {
 						max_class = level;
 						max_value = product;
 					}
+				}
+
+				//update model
+				if (update) {
+					++size;
+					++prior[max_class];
+					for (size_t j = 0; j < In[i].size(); ++j) {
+						++dist[max_class][j][In[i][j]];
+					}
+					++norm_term[In[i]];
 				}
 
 				p_res_value.push_back(max_value);
@@ -122,14 +139,18 @@ namespace BasicAi {
 			return res;
 		}
 
-		Vector2D NaiveBayes::predictProbs(const InputModel& In)
+		Vector2D NaiveBayes::predictProbs(const InputModel& In, bool update)
 		{
+			double max_class;
+			double max_value;
 			Vector2D res(In.size);
 
 			for (size_t i = 0; i < In.size; ++i) { //for each samples
 
 				res[i].reserve(prior.size());
 				double sum = 0;
+				max_class = -1;
+				max_value = -1;
 
 				for (auto& [level, df] : dist) { // for class
 
@@ -139,15 +160,30 @@ namespace BasicAi {
 							product = 0;
 							break;
 						}
-						product *= df[j][In[i][j]];
+						product *= df[j][In[i][j]] / prior[level]; //
 					}
 
-					product *= prior[level]; //* norm_term[In[i]];
+					product *= prior[level] / size; //* norm_term[In[i]]; //
 					sum += product;
 					res[i].push_back(product);
+
+					if (max_value < product) {
+						max_class = level;
+						max_value = product;
+					}
 				}
 
 				res[i] /= sum;
+
+				//update model
+				if (update) {
+					++size;
+					++prior[max_class];
+					for (size_t j = 0; j < In[i].size(); ++j) {
+						++dist[max_class][j][In[i][j]];
+					}
+					++norm_term[In[i]];
+				}
 			}
 
 			return res;
@@ -171,5 +207,19 @@ namespace BasicAi {
 		{
 			return p_res_value;
 		}
+
+		double NaiveBayes::score(const DataModel& Dm)
+		{
+			size_t i;
+			double cnt = 0;
+			Vector res = predict(Dm.input);
+
+			for (i = 0; i < Dm.size; ++i) {
+				if (Dm(i) == res[i]) ++cnt;
+			}
+
+			return cnt / Dm.size;
+		}
+
 	}
 }

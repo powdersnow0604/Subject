@@ -17,9 +17,36 @@ namespace BasicAi {
 			input = std::make_shared< std::vector<std::vector<double>>>(list);
 		}
 
-		std::vector<double>& InputModel::operator[](size_t i) const
+		InputModel::InputModel(const std::shared_ptr<Vector2D>& list)
+		{
+			input = list;
+			size = input->size();
+		}
+
+		InputModel::InputModel(): size(0)
+		{
+			input = std::make_shared< std::vector<std::vector<double>>>(Vector2D());
+		}
+
+
+		const std::vector<double>& InputModel::operator[](size_t i) const
 		{
 			return (*input)[i];
+		}
+
+		std::vector<double>& InputModel::operator[](size_t i) 
+		{
+			return (*input)[i];
+		}
+
+		const Vector2D& InputModel::get() const
+		{
+			return *(input.get());
+		}
+
+		Vector2D& InputModel::get()
+		{
+			return *(input.get());
 		}
 
 
@@ -34,14 +61,40 @@ namespace BasicAi {
 			target = std::make_shared<std::vector<double>>(list);
 		}
 
-		double& TargetModel::operator[](size_t i) const
+		TargetModel::TargetModel(const std::shared_ptr<Vector>& list)
+		{
+			target = list;
+			size = target->size();
+		}
+
+		TargetModel::TargetModel() : size(0)
+		{
+			target = std::make_shared<std::vector<double>>(Vector());
+		}
+
+		const double& TargetModel::operator[](size_t i) const
 		{
 			return (*target)[i];
 		}
 
+		double& TargetModel::operator[](size_t i) 
+		{
+			return (*target)[i];
+		}
+
+		const Vector& TargetModel::get() const
+		{
+			return *(target.get());
+		}
+
+		Vector& TargetModel::get()
+		{
+			return *(target.get());
+		}
+
 
 		//Data model
-		DataModel::DataModel(TargetModel& t, InputModel& i) : size(0)
+		DataModel::DataModel(InputModel& i, TargetModel& t) : size(0)
 		{
 			if (t.size == i.size) {
 				size = t.size;
@@ -59,6 +112,12 @@ namespace BasicAi {
 			}
 		}
 
+		DataModel::DataModel() : size(0)
+		{
+			target = std::make_shared<std::vector<double>>(Vector());
+			input = std::make_shared< std::vector<std::vector<double>>>(Vector2D());
+		}
+
 		DataModel& DataModel::operator= (const DataModel& other)
 		{
 			target = other.target;
@@ -68,16 +127,44 @@ namespace BasicAi {
 			return *this;
 		}
 
-		std::vector<double>& DataModel::operator[](size_t i) const
+		const std::vector<double>& DataModel::operator[](size_t i) const
 		{
 			return (*input)[i];
 		}
 
-		double& DataModel::operator()(size_t i) const
+		const double& DataModel::operator()(size_t i) const
 		{
 			return (*target)[i];
 		}
 
+		std::vector<double>& DataModel::operator[](size_t i)
+		{
+			return (*input)[i];
+		}
+
+		double& DataModel::operator()(size_t i)
+		{
+			return (*target)[i];
+		}
+
+		const Vector2D& DataModel::getInput() const
+		{
+			return *(input.get());
+		}
+		const Vector& DataModel::getTarget() const
+		{
+			return *(target.get());
+		}
+
+		Vector2D& DataModel::getInput()
+		{
+			return *(input.get());
+		}
+
+		Vector& DataModel::getTarget()
+		{
+			return *(target.get());
+		}
 
 		//function
 		InputModel randomInput(double arg1, double arg2, size_t size, int dim, RANDOM_ENGINE engine_type)
