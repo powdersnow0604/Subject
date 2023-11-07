@@ -38,7 +38,13 @@ namespace DataStructure {
 		MATRIX
 	};
 
-	
+	template <typename T>
+	struct edge {
+		T from;
+		T to;
+		double weight;
+		edge(T f, T t, double w): from(f), to(t), weight(w) {}
+	};
 	
 	typedef struct list_help_ {
 		size_t vertex;
@@ -176,7 +182,7 @@ namespace DataStructure {
 				if (is_weighted) {
 					fin >> weight;
 					edge_list[F].push_front({ T, weight });
-					if (!is_directed) edge_list[F].push_front({ T, weight });
+					if (!is_directed) edge_list[T].push_front({ F, weight });
 				}
 				else {
 					edge_list[F].push_front({ T, 0 });
@@ -818,6 +824,103 @@ namespace DataStructure {
 
 		return dist;
 
+	}
+
+	struct uf_set {
+		size_t root;
+		vector<size_t> child;
+		uf_set(size_t r) : root(r) {}
+	};
+
+	void uf_union_helper(vector<uf_set>& set, size_t nroot, size_t target)
+	{
+		uf_set& tset = set[target];
+		tset.root = nroot;
+		for (size_t i = 0; i < tset.child.size(); ++i) {
+			uf_union_helper(set, nroot, tset.child[i]);
+		}
+	}
+
+	template <typename T, EdgeListType type>
+	vector<edge<size_t>> Kruskal(const graph<T, type>& G)
+	{
+		const EDGELIST<type>& edge_list = G.getEdgeList();
+		size_t v_num = edge_list().size();
+		size_t e_num = G.getPropNum()["edge_num"];
+		bool is_directed = G.getPropBool()["is_directed"];
+		size_t i;
+		
+		vector<edge<size_t>> edges;
+		vector<edge<size_t>> mst;
+		vector<uf_set> eset;
+
+		edges.reserve(e_num);
+		mst.reserve(v_num - 1);
+		eset.reserve(v_num);
+
+		if constexpr (type == EdgeListType::MATRIX) {
+			if (is_directed) {
+				for (i = 0; i < v_num; ++i) {
+					for (size_t j = 0; j < v_num; ++j) {
+						if (edge_list[i][j].connected) {
+							edges.push_back({ i,j,edge_list[i][j].weight });
+						}
+					}
+				}
+			}
+			else {
+				for (i = 0; i < v_num; ++i) {
+					for (size_t j = i; j < v_num; ++j) {
+						if (edge_list[i][j].connected) {
+							edges.push_back({ i,j,edge_list[i][j].weight });
+						}
+					}
+				}
+			}
+		}
+		else {
+			if (is_directed) {
+				for (i = 0; i < v_num; ++i) {
+					for (auto& E : edge_list[i]) {
+						edges.push_back({ i,E.vertex,E.weight });
+					}
+				}
+			}
+			else {
+				for (i = 0; i < v_num; ++i) {
+					for (auto& E : edge_list[i]) {
+						if (i > E.vertex) continue;
+						edges.push_back({ i,E.vertex,E.weight });
+					}
+				}
+			}
+		}
+
+		std::sort(edges.begin(), edges.end(), [](const edge<size_t>& E1, const edge<size_t>& E2) {return E1.weight < E2.weight; });
+
+		for (i = 0; i < v_num; ++i) {
+			eset.push_back({ i });
+		}
+
+		for (i = 0; i < e_num; ++i) {
+			if (eset[edges[i].from].root != eset[edges[i].to].root) {
+				mst.push_back(edges[i]);
+				if (eset[edges[i].from].root > eset[edges[i].to].root) {
+					eset[edges[i].to].child.push_back(edges[i].from);
+					uf_union_helper(eset, eset[edges[i].to].root, eset[edges[i].from].root);
+				}
+				else {
+					eset[edges[i].from].child.push_back(edges[i].to);
+					uf_union_helper(eset, eset[edges[i].from].root, eset[edges[i].to].root);
+				}
+
+
+			}
+		}
+
+		if (mst.size() == 0) return {};
+
+		return mst;
 	}
 	
 }
