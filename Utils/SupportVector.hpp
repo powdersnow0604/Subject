@@ -520,6 +520,17 @@ namespace SupportVector {
 	}
 
 	template <typename T>
+	vector<T> loc_by_list(const vector<T>& vec, const vector<size_t>& list)
+	{
+		vector<T> res; res.reserve(list.size());
+		for (size_t i = 0; i < list.size(); ++i) {
+			res.push_back(vec[list[i]]);
+		}
+
+		return res;
+	}
+
+	template <typename T>
 	vector<T> range(T start, T end, T interval)
 	{
 		if (interval == 0 || (interval > 0 && end < start) || (interval < 0 && end > start))
@@ -745,6 +756,74 @@ namespace SupportVector {
 		}
 
 		return true;
+	}
+
+
+	template<typename T>
+	vector<T> select_k_randomly(vector<T> vec, size_t k)
+	{
+		if (vec.size() < k) return {};
+
+		std::mt19937 gen{ std::random_device()() };
+		std::uniform_int_distribution<size_t> dist;
+		std::uniform_int<size_t>::param_type params;
+		size_t randnum;
+		T temp;
+
+		for (size_t i = 0; i < k; ++i) {
+			params._Init(i, vec.size() - 1);
+			dist.param(params);
+			randnum = dist(gen);
+
+			temp = vec[i];
+			vec[i] = vec[randnum];
+			vec[randnum] = temp;
+		}
+
+		vec.resize(k);
+
+		return vec;
+
+
+	}
+
+
+	template <typename T>
+	vector<T> select_k_randomly_by_weight(vector<T> vec, const vector<double>& weight, size_t k)
+	{
+		if (vec.size() != weight.size() || vec.size() < k) return {};
+
+		std::mt19937 gen{ std::random_device()() };
+		std::uniform_int<size_t>::param_type params;
+		size_t randnum;
+		T temp;
+
+		for (size_t i = 0; i < k; ++i) {
+			std::discrete_distribution<size_t> dist(weight.begin() + i, weight.end());
+
+			randnum = dist(gen);
+
+			temp = vec[i];
+			vec[i] = vec[randnum];
+			vec[randnum] = temp;
+		}
+		
+		vec.resize(k);
+
+		return vec;
+	}
+
+
+	template<typename T>
+	size_t bsearch(const vector<T>& vec, size_t s, size_t e, T key, function<bool(T, T)> comp = [](T a, T b) {return a > b; })
+	{
+		if (s == e) return (!comp(vec[s], key) && !comp(key, vec[s])) ? s : -1; //intentional, to represent max value
+
+		size_t mid = (s + e) / 2;
+
+		if (!comp(vec[mid], key) && !comp(key, vec[mid])) return mid;
+		else if (comp(vec[mid], key)) return bsearch(vec, 0, (mid == 0) ? 0 : (mid - 1), key, comp);
+		else return bsearch(vec, mid+1, e, key, comp);
 	}
 };
 
