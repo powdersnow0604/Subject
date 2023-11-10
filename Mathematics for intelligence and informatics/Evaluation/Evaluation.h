@@ -41,6 +41,7 @@ namespace BasicAi {
 		splitResult test_train_split(const DataModel& Dm, double test_ratio, double class_std);
 
 		// 수정 필요, 각 ratio는 class 안에서의 ratio, 각 class 안에서 반올림 적용
+		// ratio를 곱한 것의 버림 적용
 		splitResult_v test_train_val_split(const DataModel& Dm, double test_ratio, double val_ratio, double class_std);
 
 		template <Evalreq T>
