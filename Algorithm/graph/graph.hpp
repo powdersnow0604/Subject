@@ -116,6 +116,10 @@ namespace DataStructure {
 	void graph<T, type>::init(const char* path, bool isDirected, bool isWeighted)
 	{
 		std::ifstream fin(path);
+		if (!fin.is_open()) {
+			cout << "file not found" << endl;
+			return;
+		}
 		map<T, size_t> class_map;
 		T from, to;
 		size_t num = 0, F, T;
@@ -672,20 +676,21 @@ namespace DataStructure {
 	{
 		vector<double> dist;
 		vector<size_t> prev;
-
+		
 		size_t u;
 		const EDGELIST<type>& edge_list = G.getEdgeList();
 		vector<size_t> Q;
+
 		constexpr double dist_max = std::numeric_limits<double>::max();
 		size_t v_num = edge_list().size();
+		vector<bool> isin(v_num, false);
 
 		dist.resize(v_num, dist_max);
 		prev.resize(v_num, null_value);
 		
 		dist[S] = 0;
-
 		Q.reserve(v_num);
-
+		
 		for (size_t i = 0; i < v_num; ++i) {
 			Q.push_back(i);
 		}
@@ -695,12 +700,11 @@ namespace DataStructure {
 			auto min_iter = std::min_element(Q.begin(), Q.end(), [&dist](const size_t& arg1, const size_t& arg2) {return dist[arg1] < dist[arg2]; });
 			u = *min_iter;
 			Q.erase(min_iter);
+			isin[u] = true;
 
 			if constexpr (type == EdgeListType::MATRIX) {
 				for (size_t i = 0; i < v_num; ++i) {
-
-					auto iter = std::find(Q.begin(), Q.end(), i);
-					if (edge_list[u][i].connected && iter != Q.end() && dist[i] > dist[u] + edge_list[u][i].weight) {
+					if (edge_list[u][i].connected && !isin[i] && dist[i] > dist[u] + edge_list[u][i].weight) {
 						dist[i] = dist[u] + edge_list[u][i].weight;
 						prev[i] = u;
 					}
@@ -708,8 +712,7 @@ namespace DataStructure {
 			}
 			else {
 				for (auto& V : edge_list[u]) {
-					auto iter = std::find(Q.begin(), Q.end(), V.vertex);
-					if (iter != Q.end() && dist[V.vertex] > dist[u] + V.weight) {
+					if (!isin[V.vertex] && dist[V.vertex] > dist[u] + V.weight) {
 						dist[V.vertex] = dist[u] + V.weight;
 						prev[V.vertex] = u;
 					}
@@ -923,5 +926,93 @@ namespace DataStructure {
 		return mst;
 	}
 	
+	template <typename T, EdgeListType type>
+	vector<edge<T>> Prim(const graph<T, type>& G, size_t s = 0, bool print = false)
+	{
+		EDGELIST<type> edge_list = G.getEdgeList();
+		size_t v_num = edge_list().size();
+		bool is_directed = G.getPropBool()["is_directed"];
+		vector<bool> is_U(v_num);
+		vector<edge<T>> tree;
+		auto class_table = G.getClassTable();
+		size_t new_u = 0;
+
+		size_t cnt = 1;
+
+		is_U[s] = true;
+
+		auto comp = [](const edge<size_t>& arg1, const edge<size_t>& arg2) {return arg1.weight > arg2.weight; };
+		priority_queue<edge<size_t>, vector<edge<size_t>>, decltype(comp)> edges{ comp };
+
+
+		if constexpr (type == EdgeListType::MATRIX) {
+			size_t i;
+			for (i = 0; i < edge_list[s].size(); ++i) {
+				if (edge_list[s][i].connected) edges.push({ s, i, edge_list[s][i].weight });
+			}
+
+
+			while (cnt != v_num) {
+				if (edges.empty()) return {};
+
+				const edge<size_t> candidate = edges.top();
+				edges.pop();
+
+				if (is_U[candidate.from] && is_U[candidate.to]) {
+					continue;
+				}
+
+				++cnt;
+
+				is_U[candidate.to] = true;
+				new_u = candidate.to;
+
+				tree.push_back({ class_table[candidate.from], class_table[candidate.to], candidate.weight });
+
+				for (i = 0; i < edge_list[new_u].size(); ++i) {
+					if (edge_list[new_u][i].connected) edges.push({ new_u, i, edge_list[new_u][i].weight });
+				}
+
+			}
+		}
+		else {
+			for (auto& V : edge_list[s]) {
+				edges.push({ s, V.vertex, V.weight });
+			}
+		
+
+			while (cnt != v_num) {
+				if (edges.empty()) return {};
+				
+				const edge<size_t> candidate = edges.top();
+				edges.pop();
+
+				if (is_U[candidate.from] && is_U[candidate.to]) {
+					continue;
+				}
+
+				++cnt;
+
+				is_U[candidate.to] = true;
+				new_u = candidate.to;
+
+				tree.push_back({class_table[candidate.from], class_table[candidate.to], candidate.weight });
+
+				for (auto& V : edge_list[new_u]) {
+					edges.push({ new_u, V.vertex, V.weight });
+				}
+				
+			}
+		}
+
+		if (print) {
+			cout << "minimum cost spanning tree:" << endl;
+			for (size_t i = 0; i < tree.size(); ++i) {
+				std::cout << "(" << tree[i].from << ", " << tree[i].to << ") = " << tree[i].weight << std::endl;
+			}
+		}
+
+		return tree;
+	}
 }
 #endif
