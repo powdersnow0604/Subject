@@ -3,6 +3,7 @@
 
 #include <map>
 #include <functional>
+#include <iostream>
 
 //c++ 17
 
@@ -28,6 +29,16 @@ namespace SupportMap {
 		
 
 		return { max_key, max_val };
+	}
+
+	template <typename Tk_, typename Tv_>
+	std::ostream& operator<<(std::ostream& out, const map<Tk_, Tv_>& map_)
+	{
+		for (auto& [k, v] : map_) {
+			std::cout << "class " << k << ": " << std::endl << v << std::endl;
+		}
+
+		return out;
 	}
 }
 

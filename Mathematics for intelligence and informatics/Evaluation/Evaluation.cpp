@@ -1,6 +1,7 @@
 #include "Evaluation.h"
-#include <iostream>
 #include <map>
+#include <algorithm>
+
 
 namespace BasicAi {
 	namespace Evaluation {
@@ -41,7 +42,7 @@ namespace BasicAi {
 			return res;
 		}
 
-		splitResult test_train_split(const DataModel& Dm, double test_ratio, double class_std)
+		splitResult test_train_split(const DataModel& Dm, double test_ratio)
 		{
 			if (test_ratio > 1. || test_ratio < 0.) return {};
 
@@ -71,7 +72,7 @@ namespace BasicAi {
 			return {test_target, train_target, test_input, train_input};
 		}
 
-		splitResult_v test_train_val_split(const DataModel& Dm, double test_ratio, double val_ratio, double class_std)
+		splitResult_v test_train_val_split(const DataModel& Dm, double test_ratio, double val_ratio)
 		{
 			if (test_ratio > 1. || test_ratio < 0. || val_ratio > 1. || val_ratio < 0. || (test_ratio + val_ratio) > 1.) return {};
 
@@ -112,5 +113,112 @@ namespace BasicAi {
 			return { test_target, train_target, val_target, test_input, train_input, val_input };
 		}
 
+		array<array<size_t, 2>, 2> confusionMatrix(const TargetModel& Tm, const TargetModel& pred, double positive)
+		{
+			if (Tm.size != pred.size) return {};
+
+			array<array<size_t, 2>, 2> res = {0,0,0,0};
+			for (size_t i = 0; i < Tm.size; ++i) {
+				++(res[Tm[i] != positive][pred[i] != positive]);
+			}
+
+			return res;
+		}
+
+		void roc_curve(const TargetModel& Tar, const Vector& proba, double positive)
+		{
+			if (Tar.size != proba.size()) return;
+
+			Vector2D res; res.reserve(Tar.size + 1);
+			vector<size_t> sorted = range(0ull, Tar.size, 1ull);
+			const Vector& target = Tar.get();
+			array<array<size_t, 2>, 2> cMat;
+			size_t i, j, p_num = 0, f_num = 0;
+			double fpr, tpr;
+
+			for (i = 0; i < Tar.size; ++i) {
+				if (Tar[i] == positive) ++p_num;
+			}
+			f_num = Tar.size - p_num;
+
+
+			std::sort(sorted.begin(), sorted.end(), [&proba](const size_t& arg1, const size_t& arg2) {return proba[arg1] < proba[arg2]; });
+
+			for (i = 0; i <= Tar.size; ++i) {
+				cMat.fill({ 0,0 });
+				for (j = 0; j < i; ++j) {
+					++(cMat[Tar[sorted[j]] != positive][1]);
+				}
+				for (j = i; j < Tar.size; ++j) {
+					++(cMat[Tar[sorted[j]] != positive][0]);
+				}
+
+				tpr = (double)cMat[0][0] / p_num;
+				fpr = (double)cMat[1][0] / f_num;
+
+				res.push_back({ fpr, tpr });
+			}
+
+			for (i = 0; i < 2; ++i) {
+				for (j = 0; j < 2; ++j) {
+					std::cout << cMat[i][j] << " ";
+				}
+				std::cout << std::endl;
+			}
+
+			std::sort(res.begin(), res.end(), [](const Vector& arg1, const Vector& arg2) {return arg1[0] < arg2[0]; });
+			plot(res, "ROC", Scalar(255, 0, 0), 2, 2);
+			show("ROC");
+		}
+
+		double roc_auc_score(const TargetModel& Tar, const Vector& proba, double positive, bool print_roc)
+		{
+			if (Tar.size != proba.size()) return -1;
+
+			Vector2D res; res.reserve(Tar.size + 1);
+			vector<size_t> sorted = range(0ull, Tar.size, 1ull);
+			const Vector& target = Tar.get();
+			array<array<size_t, 2>, 2> cMat;
+			size_t i, j, p_num = 0, f_num = 0;
+			double fpr, tpr, auc = 0;
+
+			for (i = 0; i < Tar.size; ++i) {
+				if (Tar[i] == positive) ++p_num;
+			}
+			f_num = Tar.size - p_num;
+
+
+			std::sort(sorted.begin(), sorted.end(), [&proba](const size_t& arg1, const size_t& arg2) {return proba[arg1] < proba[arg2]; });
+
+			for (i = 0; i <= Tar.size; ++i) {
+				cMat.fill({ 0,0 });
+				for (j = 0; j < i; ++j) {
+					++(cMat[Tar[sorted[j]] != positive][1]);
+				}
+				for (j = i; j < Tar.size; ++j) {
+					++(cMat[Tar[sorted[j]] != positive][0]);
+				}
+
+				tpr = (double)cMat[0][0] / p_num;
+				fpr = (double)cMat[1][0] / f_num;
+
+				res.push_back({ fpr, tpr });
+			}
+
+
+			std::sort(res.begin(), res.end(), [](const Vector& arg1, const Vector& arg2) {return arg1[0] < arg2[0]; });
+
+			if (print_roc) {
+				plot(res, "ROC", Scalar(255, 0, 0), 2, 2);
+				show("ROC");
+			}
+			
+			for (i = 0; i < res.size() - 1; ++i) {
+				if (res[i][0] == res[i + 1][0]) continue;
+				auc += res[i + 1][1] * (res[i + 1][0] - res[i][0]);
+			}
+
+			return auc;
+		}
 	}
 }

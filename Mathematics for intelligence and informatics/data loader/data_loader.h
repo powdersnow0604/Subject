@@ -6,6 +6,18 @@
 namespace DataLoader{
 	using namespace BasicAi::DataModels;
 
+	/*		for Naive Bayes		*/
+	//  [Meningitis data]
+	//des1: Headache
+	// 0: false, 1: true
+	//des2: Fever
+	// 0: false, 1: true
+	//des3: Vomiting
+	// 0: false, 1: true
+	//target: Meningitis
+	// 0: false, 1: true
+	DataModel load_Meningitis(void);
+
 	/*		for Naive Bayes		*/	
 	//  [Fraud data]
 	//des1: Credit History

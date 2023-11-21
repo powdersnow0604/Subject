@@ -2,6 +2,15 @@
 
 namespace DataLoader {
 
+	DataModel load_Meningitis(void)
+	{
+		TargetModel target = { 0,0,0,0,1,0,0,1,0,1};
+		InputModel input = { { 1,1,0}, { 0,1,0}, { 1,0,1},{ 1,0,1},{ 0,1,0},{ 1,0,1},{ 1,0,1},{ 1,0,1},{ 0,1,0},{ 1,0,1} };
+
+		return { input, target };
+	}
+
+
 	DataModel load_Fraud(void)
 	{
 		TargetModel target = { 1,0,0,1,0,1,0,0,0,1,0,1,1,0,0,0,0,0,0,0 };

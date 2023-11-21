@@ -4,11 +4,14 @@
 #include "DataModel.h"
 #include "pch.h"
 #include <random>
+#include <array>
+#include <iostream>
 
 using namespace BasicAi::DataModels;
 
 namespace BasicAi {
 	namespace Evaluation {
+		using std::array;
 
 		template <typename T>
 		concept Evalreq = requires(T t, DataModel dm) {
@@ -38,11 +41,17 @@ namespace BasicAi {
 			splitResult_v() {}
 		};
 
-		splitResult test_train_split(const DataModel& Dm, double test_ratio, double class_std);
+		splitResult test_train_split(const DataModel& Dm, double test_ratio);
 
-		// 수정 필요, 각 ratio는 class 안에서의 ratio, 각 class 안에서 반올림 적용
 		// ratio를 곱한 것의 버림 적용
-		splitResult_v test_train_val_split(const DataModel& Dm, double test_ratio, double val_ratio, double class_std);
+		splitResult_v test_train_val_split(const DataModel& Dm, double test_ratio, double val_ratio);
+
+		array<array<size_t, 2>, 2> confusionMatrix(const TargetModel& Tm, const TargetModel& pred, double positive);
+
+		void roc_curve(const TargetModel& Tar, const Vector& proba, double positive);
+
+		double roc_auc_score(const TargetModel& Tar, const Vector& proba, double positive, bool print_roc);
+
 
 		template <Evalreq T>
 		double ThreeWayHoldOut(T& model, const splitResult_v& Sr, size_t epoch)
@@ -67,33 +76,42 @@ namespace BasicAi {
 		}
 
 		template <Evalreq T>
-		double K_FoldCV(T& model, const DataModel& Dm, double ratio = 0.1)
+		double K_FoldCV(T& model, const DataModel& Dm, double ratio = 0.1, bool print = false)
 		{
 			if (ratio <= 0 && ratio >= 1) return -1;
 
-			Vector2D input = *Dm.input.get();
-			Vector target = *Dm.target.get();
-			Vector2D fold_train_input, fold_test_input;
-			Vector fold_train_target, fold_test_target;
+			const Vector2D& input = *Dm.input.get();
+			const Vector& target = *Dm.target.get();
+			
 			size_t fold_size = static_cast<size_t>(Dm.size * ratio);
 			size_t curr_fold_size;
 			size_t cnt = 0;
-			double score = 0;
+			vector<double> score;
 
 
 			for (size_t i = 0; i < Dm.size; i += fold_size) {
 				curr_fold_size = fold_size > (Dm.size - i) ? (Dm.size - i) : fold_size;
-				fold_test_input = loc(input, i, i + curr_fold_size, 1);
-				fold_train_input = concatenate({ loc(input, 0, i, 1), loc(input, i + curr_fold_size, Dm.size, 1) });
-				fold_test_target = loc(target, i, i + curr_fold_size, 1);
-				fold_train_target = concatenate({ loc(target, 0, i, 1), loc(target, i + curr_fold_size, Dm.size, 1) });
-				
+				const Vector2D& fold_test_input = loc(input, i, i + curr_fold_size, 1);
+				const Vector2D& fold_train_input = concatenate({ loc(input, 0, i, 1), loc(input, i + curr_fold_size, Dm.size, 1) });
+				const Vector& fold_test_target = loc(target, i, i + curr_fold_size, 1);
+				const Vector& fold_train_target = concatenate({ loc(target, 0, i, 1), loc(target, i + curr_fold_size, Dm.size, 1) });
+
+				//calc score
 				model.fit({ fold_train_input, fold_train_target });
-				score += model.score({ fold_test_input, fold_test_target });
+				score.push_back(model.score({ fold_test_input, fold_test_target }));
 				++cnt;
 			}
 
-			return score / cnt;
+			double mean_ = mean(score);
+			double stdev_ = stdev(score, mean_);
+
+			if (print) {
+				std::cout << "mean = " << mean_ << std::endl;
+				std::cout << "variance = " << stdev_ * stdev_ << std::endl;
+			}
+		
+
+			return mean_;
 		}
 
 		template<Evalreq T>
@@ -121,6 +139,7 @@ namespace BasicAi {
 
 			return score / cnt;
 		}
+
 	}
 }
 #endif

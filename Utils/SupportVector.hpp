@@ -636,7 +636,7 @@ namespace SupportVector {
 	T stdev(const vector<T>& vec) {
 		T m = mean(vec);
 		
-		return SupportVector::sqrt(mean(vec * vec) - mean(vec) * mean(vec));
+		return SupportVector::sqrt(mean(vec * vec) - m * m);
 
 		/*
 		auto s = vSum((vec - m) * (vec - m));
@@ -655,7 +655,7 @@ namespace SupportVector {
 	template<typename T>
 	T stdev(const vector<T>& vec, const T m) {
 
-		return SupportVector::sqrt(mean(vec * vec) - mean(vec) * mean(vec));
+		return SupportVector::sqrt(mean(vec * vec) - m * m);
 
 		/*
 		auto s = vSum((vec - m) * (vec - m));
