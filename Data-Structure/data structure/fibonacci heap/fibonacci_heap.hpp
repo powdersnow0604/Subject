@@ -59,6 +59,7 @@ namespace DataStructure {
 		T extract_min();
 		void decrease_key(node* key, const T& value);
 		void print();
+		bool is_empty() { return min == nullptr; }
 		~fibonacci_heap() noexcept;
 	};
 
@@ -82,7 +83,6 @@ namespace DataStructure {
 		} while (curr != min);
 	}
 
-	
 	template<typename T, typename Compare, typename Allocator>
 	fibo_node<T>* fibonacci_heap<T, Compare, Allocator>::insert(const T& item)
 	{
@@ -144,7 +144,6 @@ namespace DataStructure {
 		allocator.deallocate(prev_min, 1);
 		
 		--node_num;
-
 		consolidate();
 
 		return min_value;
@@ -153,7 +152,7 @@ namespace DataStructure {
 	template<typename T, typename Compare, typename Allocator>
 	void fibonacci_heap<T, Compare, Allocator>::consolidate()
 	{
-		size_t degree, max_degree = static_cast<size_t>(std::log(node_num) / LOGGR) + 1;
+		size_t degree, max_degree = static_cast<size_t>(std::log(node_num) / LOGGR);
 		node* curr = min, * bigger, * smaller, * candidate, * last = min->prev;
 		bool running = true;
 		std::vector<node*> vec(max_degree + 1, nullptr);
@@ -176,13 +175,13 @@ namespace DataStructure {
 					break;
 				}
 
-				if (comp(vec[degree]->item, candidate->item)) {
-					smaller = vec[degree];
-					bigger = candidate;
-				}
-				else {
+				if (comp(candidate->item, vec[degree]->item)) {
 					smaller = candidate;
 					bigger = vec[degree];
+				}
+				else {
+					smaller = vec[degree];
+					bigger = candidate;
 				}
 
 				if (smaller->child == nullptr) {
@@ -310,14 +309,16 @@ namespace DataStructure {
 	{
 		if (min != nullptr) {
 			node* curr = min;
-			node* last = min->prev->next;
+			node* temp;
+			min->prev->next = nullptr;
 			do {
 				if (curr->child != nullptr) {
 					deleter(curr->child);
 				}
+				temp = curr;
 				curr = curr->next;
-				allocator.deallocate(curr->prev, 1);
-			} while (curr != last);
+				allocator.deallocate(temp, 1);
+			} while (curr != nullptr);
 		}
 	}
 	
@@ -325,14 +326,16 @@ namespace DataStructure {
 	void fibonacci_heap<T, Compare, Allocator>::deleter(node* node_)
 	{
 		node* curr = node_;
-		node* last = node_->prev->next;
+		node* temp;
+		node_->prev->next = nullptr;
 		do {
 			if (curr->child != nullptr) {
 				deleter(curr->child);
 			}
+			temp = curr;
 			curr = curr->next;
-			allocator.deallocate(curr->prev, 1);
-		} while (curr != last);
+			allocator.deallocate(temp, 1);
+		} while (curr != nullptr);
 	}
 }
 

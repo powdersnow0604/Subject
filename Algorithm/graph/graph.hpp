@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <functional>
 #include <limits>
+#include "fibonacci_heap.hpp"
 
 using std::set;
 using std::map;
@@ -29,7 +30,7 @@ using std::endl;
 using std::function;
 
 namespace DataStructure {
-
+	
 	//////////////////////////////////////////////////////////////////////////		class graph helpers		///////////////////////////////////////////////////////////////////////////////////////////////
 
 	enum class EdgeListType
@@ -44,6 +45,7 @@ namespace DataStructure {
 		T to;
 		double weight;
 		edge(T f, T t, double w): from(f), to(t), weight(w) {}
+		edge():from(T()), to(T()), weight(0.) {}
 	};
 	
 	typedef struct list_help_ {
@@ -679,27 +681,31 @@ namespace DataStructure {
 		
 		size_t u;
 		const EDGELIST<type>& edge_list = G.getEdgeList();
-		vector<size_t> Q;
+		//vector<size_t> Q;
+		auto comp = [&dist](const size_t& arg1, const size_t& arg2) { return dist[arg1] < dist[arg2]; };
+		fibonacci_heap<size_t, decltype(comp)> fibo_heap(comp);
 
 		constexpr double dist_max = std::numeric_limits<double>::max();
 		size_t v_num = edge_list().size();
 		vector<bool> isin(v_num, false);
+		vector<fibo_node<size_t>*> fibo_nodes; fibo_nodes.reserve(v_num);
 
 		dist.resize(v_num, dist_max);
 		prev.resize(v_num, null_value);
 		
 		dist[S] = 0;
-		Q.reserve(v_num);
+		//Q.reserve(v_num);
 		
 		for (size_t i = 0; i < v_num; ++i) {
-			Q.push_back(i);
+			//Q.push_back(i);
+			fibo_nodes.push_back(fibo_heap.insert(i));
 		}
 
-		while (!Q.empty()) {
-
-			auto min_iter = std::min_element(Q.begin(), Q.end(), [&dist](const size_t& arg1, const size_t& arg2) {return dist[arg1] < dist[arg2]; });
-			u = *min_iter;
-			Q.erase(min_iter);
+		while (!fibo_heap.is_empty()) {  //!Q.empty()
+			//auto min_iter = std::min_element(Q.begin(), Q.end(), [&dist](const size_t& arg1, const size_t& arg2) {return dist[arg1] < dist[arg2]; });
+			//u = *min_iter;
+			//Q.erase(min_iter);
+			u = fibo_heap.extract_min();
 			isin[u] = true;
 
 			if constexpr (type == EdgeListType::MATRIX) {
@@ -707,6 +713,7 @@ namespace DataStructure {
 					if (edge_list[u][i].connected && !isin[i] && dist[i] > dist[u] + edge_list[u][i].weight) {
 						dist[i] = dist[u] + edge_list[u][i].weight;
 						prev[i] = u;
+						fibo_heap.decrease_key(fibo_nodes[i], i);
 					}
 				}
 			}
@@ -715,10 +722,10 @@ namespace DataStructure {
 					if (!isin[V.vertex] && dist[V.vertex] > dist[u] + V.weight) {
 						dist[V.vertex] = dist[u] + V.weight;
 						prev[V.vertex] = u;
+						fibo_heap.decrease_key(fibo_nodes[V.vertex], V.vertex);
 					}
 				}
 			}
-
 		}
 		
 		return { prev, dist };
@@ -941,22 +948,27 @@ namespace DataStructure {
 
 		is_U[s] = true;
 
-		auto comp = [](const edge<size_t>& arg1, const edge<size_t>& arg2) {return arg1.weight > arg2.weight; };
-		priority_queue<edge<size_t>, vector<edge<size_t>>, decltype(comp)> edges{ comp };
+		//auto comp = [](const edge<size_t>& arg1, const edge<size_t>& arg2) {return arg1.weight > arg2.weight; };
+		//priority_queue<edge<size_t>, vector<edge<size_t>>, decltype(comp)> edges{ comp };
+		auto comp = [](const edge<size_t>& arg1, const edge<size_t>& arg2) {return arg1.weight < arg2.weight; };
+		fibonacci_heap<edge<size_t>, decltype(comp)> edges(comp);
 
 
 		if constexpr (type == EdgeListType::MATRIX) {
 			size_t i;
 			for (i = 0; i < edge_list[s].size(); ++i) {
-				if (edge_list[s][i].connected) edges.push({ s, i, edge_list[s][i].weight });
+				//if (edge_list[s][i].connected) edges.push({ s, i, edge_list[s][i].weight });
+				if (edge_list[s][i].connected) edges.insert({ s, i, edge_list[s][i].weight });
 			}
 
 
 			while (cnt != v_num) {
-				if (edges.empty()) return {};
+				//if (edges.empty()) return {};
+				if (edges.is_empty()) return {};
 
-				const edge<size_t> candidate = edges.top();
-				edges.pop();
+				//const edge<size_t> candidate = edges.top();
+				//edges.pop();
+				const edge<size_t> candidate = edges.extract_min();
 
 				if (is_U[candidate.from] && is_U[candidate.to]) {
 					continue;
@@ -970,22 +982,26 @@ namespace DataStructure {
 				tree.push_back({ class_table[candidate.from], class_table[candidate.to], candidate.weight });
 
 				for (i = 0; i < edge_list[new_u].size(); ++i) {
-					if (edge_list[new_u][i].connected) edges.push({ new_u, i, edge_list[new_u][i].weight });
+					//if (edge_list[new_u][i].connected) edges.push({ new_u, i, edge_list[new_u][i].weight });
+					if (edge_list[new_u][i].connected) edges.insert({ new_u, i, edge_list[new_u][i].weight });
 				}
 
 			}
 		}
 		else {
 			for (auto& V : edge_list[s]) {
-				edges.push({ s, V.vertex, V.weight });
+				//edges.push({ s, V.vertex, V.weight });
+				edges.insert({ s, V.vertex, V.weight });
 			}
 		
 
 			while (cnt != v_num) {
-				if (edges.empty()) return {};
-				
-				const edge<size_t> candidate = edges.top();
-				edges.pop();
+				//if (edges.empty()) return {};
+				if (edges.is_empty()) return {};
+
+				//const edge<size_t> candidate = edges.top();
+				//edges.pop();
+				const edge<size_t> candidate = edges.extract_min();
 
 				if (is_U[candidate.from] && is_U[candidate.to]) {
 					continue;
@@ -999,7 +1015,8 @@ namespace DataStructure {
 				tree.push_back({class_table[candidate.from], class_table[candidate.to], candidate.weight });
 
 				for (auto& V : edge_list[new_u]) {
-					edges.push({ new_u, V.vertex, V.weight });
+					//edges.push({ new_u, V.vertex, V.weight });
+					edges.insert({ new_u, V.vertex, V.weight });
 				}
 				
 			}

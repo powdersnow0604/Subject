@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "algorithm.h"
 #include <stdio.h>
+#include "greedy_fibo_heap.h"
 
 
 static int knapsack_helper(const void* arg1, const void* arg2)
@@ -60,18 +61,47 @@ void JobSchedule_greedy(int* D, int* J, int n)
 	}
 }
 
+static int omp_helper(const omp_node* arg1, const omp_node* arg2)
+{
+	return arg1->weight < arg2->weight;
+}
 
 int optimalMergePattern(int n, int* L)
 {
-	typedef struct node_ {
-		struct node_* left;
-		struct node_* right;
-		int weight;
-	}node;
+	fibo_heap_omp fibo;
+	fibo_heap_init_omp(&fibo, omp_helper);
 
-	//for()
+	int i, sum = 0;
+	omp_node *nnode;
 
-	int sum = 0;
-	return 0;
+	for (i = 0; i < n; ++i) {
+		nnode = (omp_node*)malloc(sizeof(omp_node));
+		if (nnode == NULL) {
+			fibo_heap_delete_omp(&fibo);
+			return -1;
+		}
+		nnode->left = nnode->right = NULL;
+		nnode->weight = L[i];
+		fibo_heap_insert_omp(&fibo, nnode);
+	}
+
+	for (i = 0; i < n - 1; ++i) {
+		nnode = (omp_node*)malloc(sizeof(omp_node));
+		if (nnode == NULL) {
+			fibo_heap_delete_omp(&fibo);
+			return -1;
+		}
+		nnode->left = fibo_heap_extract_min_omp(&fibo);
+		nnode->right = fibo_heap_extract_min_omp(&fibo);
+		nnode->weight = nnode->left->weight + nnode->right->weight;
+
+		sum += nnode->weight;
+		fibo_heap_insert_omp(&fibo, nnode);
+	}
+
+	nnode = fibo_heap_extract_min_omp(&fibo);
+	fibo_heap_delete_omp(&fibo);
+
+	return nnode->weight;
 }
 

@@ -13,8 +13,9 @@
 #define FIBO_CONSOLIDATION fibo_heap_consolidation_ ## int
 #define FIBO_LINK2NODE fibo_heap_link_2_node_ ## int
 #define FIBO_ADDNODE fibo_heap_add_node_ ## int
-#define FIBO_PRUNNING fibo_prunning_ ## int
-#define FIBO_DELETE fibo_delete_ ## int 
+#define FIBO_PRUNNING fibo_heap_prunning_ ## int
+#define FIBO_ISEMPTY fibo_heap_is_empty_ ## int
+#define FIBO_DELETE fibo_heap_delete_ ## int 
 #define FIBO_DELETE_HELPER fibo_delete_helper_ ## int 
 #define FIBO_DEFAULTLESS fibo_default_less_ ## int
 #define FIBO_DEFAULTGREATER fibo_default_greater_ ## int
@@ -42,20 +43,24 @@ typedef struct FIBONAME_ORIGIN {
 	FIBONODE_NAME* min;
 	int (*comp)(FIBOTYPE, FIBOTYPE);
 	size_t node_num;
+	void* (*allocator)(size_t);
+	void (*deallocator)(void*);
 }FIBONAME;
 
 void FIBO_SETVALUE(FIBONODE_NAME* node, FIBONODE_NAME* const parent_, FIBONODE_NAME* const child_, FIBONODE_NAME* const prev_, FIBONODE_NAME* const next_,
-	const FIBOTYPE item_, const size_t degree_, const char marked_);
+	FIBOTYPE item_, size_t degree_, char marked_);
 
-void FIBO_INIT(FIBONAME* fibo, int (*comp_)(FIBOTYPE, FIBOTYPE));
+void FIBO_INIT(FIBONAME* fibo, int (*comp_)(FIBOTYPE, FIBOTYPE), void* (*allocator_)(size_t), void (*deallocator_)(void*));
 
-FIBONODE_NAME* FIBO_INSERT(FIBONAME* fibo, const FIBOTYPE item);
+FIBONODE_NAME* FIBO_INSERT(FIBONAME* fibo, FIBOTYPE item);
 
 FIBOTYPE FIBO_GETMIN(FIBONAME* fibo);
 
 FIBOTYPE FIBO_EXTRACTMIN(FIBONAME* fibo);
 
-void FIBO_DECREASEKEY(FIBONAME* fibo, FIBONODE_NAME* key, const FIBOTYPE value);
+void FIBO_DECREASEKEY(FIBONAME* fibo, FIBONODE_NAME* key, FIBOTYPE value);
+
+int FIBO_ISEMPTY(FIBONAME* fibo);
 
 void FIBO_DELETE(FIBONAME* fibo);
 

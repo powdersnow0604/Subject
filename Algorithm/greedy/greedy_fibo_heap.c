@@ -1,5 +1,4 @@
-#define FIBOTYPE double
-#include "fibonacci_heap.h"
+#include "greedy_fibo_heap.h"
 #include <stdlib.h>
 #include <math.h>
 
@@ -11,10 +10,10 @@ static void FIBO_ADDNODE(FIBONODE_NAME* dest, FIBONODE_NAME* source);
 
 static void FIBO_PRUNNING(FIBONAME* fibo, FIBONODE_NAME* node_);
 
-static void FIBO_DELETE_HELPER(FIBONODE_NAME* node_, void (*deallocator_)(void*));
+static void FIBO_DELETE_HELPER(FIBONODE_NAME* node_);
 
-const double GOLDENRATIO = 1.61803398875;
-const double LOGGR = 0.481212; //std::log(GOLDENRATIO)
+const double GOLDENRATIO_ = 1.61803398875;
+const double LOGGR_ = 0.481212; //std::log(GOLDENRATIO)
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -32,19 +31,12 @@ void FIBO_SETVALUE(FIBONODE_NAME* node, FIBONODE_NAME* const parent_, FIBONODE_N
 	node->marked = marked_;
 }
 
-void FIBO_INIT(FIBONAME* fibo, int (*comp_)(FIBOTYPE, FIBOTYPE), void* (*allocator_)(size_t), void (*deallocator_)(void*))
+void FIBO_INIT(FIBONAME* fibo, int (*comp_)(FIBOTYPE, FIBOTYPE))
 {
 	fibo->min = NULL;
 	fibo->node_num = 0;
+	fibo->comp = comp_;
 
-	if (comp_ == NULL) fibo->comp = FIBO_DEFAULTLESS;
-	else fibo->comp = comp_;
-
-	if (allocator_ == NULL) fibo->allocator = malloc;
-	else fibo->allocator = allocator_;
-
-	if (deallocator_ == NULL) fibo->deallocator = free;
-	else fibo->deallocator = deallocator_;
 }
 
 FIBONODE_NAME* FIBO_INSERT(FIBONAME* fibo, FIBOTYPE item)
@@ -52,13 +44,13 @@ FIBONODE_NAME* FIBO_INSERT(FIBONAME* fibo, FIBOTYPE item)
 	++(fibo->node_num);
 
 	if (fibo->min == NULL) {
-		fibo->min = (FIBONODE_NAME*)fibo->allocator(sizeof(FIBONODE_NAME));
+		fibo->min = (FIBONODE_NAME*)malloc(sizeof(FIBONODE_NAME));
 		FIBO_SETVALUE(fibo->min, NULL, NULL, fibo->min, fibo->min, item, 0, 0);
 
 		return fibo->min;
 	}
 
-	FIBONODE_NAME* nnode = (FIBONODE_NAME*)fibo->allocator(sizeof(FIBONODE_NAME));
+	FIBONODE_NAME* nnode = (FIBONODE_NAME*)malloc(sizeof(FIBONODE_NAME));
 	FIBO_SETVALUE(nnode, NULL, NULL, fibo->min->prev, fibo->min, item, 0, 0);
 
 	fibo->min->prev->next = nnode;
@@ -83,7 +75,7 @@ FIBOTYPE FIBO_EXTRACTMIN(FIBONAME* fibo)
 	if (fibo->node_num == 1) {
 		fibo->node_num = 0;
 		FIBOTYPE temp = fibo->min->item;
-		fibo->deallocator(fibo->min);
+		free(fibo->min);
 		fibo->min = NULL;
 		return temp;
 	}
@@ -101,7 +93,7 @@ FIBOTYPE FIBO_EXTRACTMIN(FIBONAME* fibo)
 
 	fibo->min = prev_min->next;
 
-	fibo->deallocator(prev_min);
+	free(prev_min);
 
 	--(fibo->node_num);
 
@@ -147,7 +139,7 @@ void FIBO_DECREASEKEY(FIBONAME* fibo, FIBONODE_NAME* key, FIBOTYPE value)
 
 void FIBO_CONSOLIDATION(FIBONAME* fibo)
 {
-	size_t degree, max_degree = (size_t)(log((double)fibo->node_num) / LOGGR) + 1;
+	size_t degree, max_degree = (size_t)(log((double)fibo->node_num) / LOGGR_) + 1;
 	FIBONODE_NAME* curr = fibo->min, * bigger, * smaller, * candidate, * last = fibo->min->prev;
 	char running = 1;
 	FIBONODE_NAME** vec = (FIBONODE_NAME**)calloc(max_degree + 1, sizeof(FIBONODE_NAME*));
@@ -271,30 +263,30 @@ void FIBO_DELETE(FIBONAME* fibo)
 {
 	if (fibo->min == NULL) return;
 	fibo->min->prev->next = NULL;
-	FIBONODE_NAME* curr = fibo->min, *temp;
+	FIBONODE_NAME* curr = fibo->min, * temp;
 
 	do {
 		if (curr->child != NULL) {
-			FIBO_DELETE_HELPER(curr->child, fibo->deallocator);
+			FIBO_DELETE_HELPER(curr->child);
 		}
 		temp = curr;
 		curr = curr->next;
-		fibo->deallocator(temp);
+		free(temp);
 	} while (NULL != curr);
 }
 
-void FIBO_DELETE_HELPER(FIBONODE_NAME* node_, void (*deallocator_)(void*))
+void FIBO_DELETE_HELPER(FIBONODE_NAME* node_)
 {
 	node_->prev->next = NULL;
-	FIBONODE_NAME* curr = node_, *temp;
+	FIBONODE_NAME* curr = node_, * temp;
 
 	do {
 		if (curr->child != NULL) {
-			FIBO_DELETE_HELPER(curr->child, deallocator_);
+			FIBO_DELETE_HELPER(curr->child);
 		}
 		temp = curr;
 		curr = curr->next;
-		deallocator_(temp);
+		free(temp);
 	} while (NULL != curr);
 }
 
