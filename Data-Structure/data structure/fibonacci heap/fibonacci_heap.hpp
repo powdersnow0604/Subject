@@ -30,7 +30,7 @@ namespace DataStructure {
 			parent = parent_;
 			degree = degree_;
 			item = item_;
-			marked = marked;
+			marked = marked_;
 		}
 	};
 	
@@ -50,6 +50,7 @@ namespace DataStructure {
 		void link_2_node(node* n1, node* n2);
 		void add_node(node* dest, node* source);
 		void prunning(node* node_);
+		void deleter(node* node_);
 
 	public:
 		fibonacci_heap(const Compare& comp_ = Compare(), const Allocator& allocator_ = Allocator() ) : min(nullptr), comp(comp_), allocator(allocator_) {}
@@ -58,6 +59,7 @@ namespace DataStructure {
 		T extract_min();
 		void decrease_key(node* key, const T& value);
 		void print();
+		~fibonacci_heap() noexcept;
 	};
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -277,8 +279,6 @@ namespace DataStructure {
 		}
 	}
 
-	
-
 	template<typename T, typename Compare, typename Allocator>
 	void fibonacci_heap<T, Compare, Allocator>::link_2_node(node* n1, node* n2)
 	{
@@ -305,6 +305,35 @@ namespace DataStructure {
 
 	}
 
+	template<typename T, typename Compare, typename Allocator>
+	fibonacci_heap<T, Compare, Allocator>::~fibonacci_heap() noexcept
+	{
+		if (min != nullptr) {
+			node* curr = min;
+			node* last = min->prev->next;
+			do {
+				if (curr->child != nullptr) {
+					deleter(curr->child);
+				}
+				curr = curr->next;
+				allocator.deallocate(curr->prev, 1);
+			} while (curr != last);
+		}
+	}
+	
+	template<typename T, typename Compare, typename Allocator>
+	void fibonacci_heap<T, Compare, Allocator>::deleter(node* node_)
+	{
+		node* curr = node_;
+		node* last = node_->prev->next;
+		do {
+			if (curr->child != nullptr) {
+				deleter(curr->child);
+			}
+			curr = curr->next;
+			allocator.deallocate(curr->prev, 1);
+		} while (curr != last);
+	}
 }
 
 #endif
