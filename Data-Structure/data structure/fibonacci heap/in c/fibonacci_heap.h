@@ -16,6 +16,8 @@
 #define FIBO_PRUNNING fibo_prunning_ ## int
 #define FIBO_DELETE fibo_delete_ ## int 
 #define FIBO_DELETE_HELPER fibo_delete_helper_ ## int 
+#define FIBO_DEFAULTLESS fibo_default_less_ ## int
+#define FIBO_DEFAULTGREATER fibo_default_greater_ ## int
 #define FIBONAME_ORIGIN fibo_heap_ ## int ## _
 #define FIBONAME fibo_heap_ ## int
 #define FIBONODE_NAME_ORIGIN fibo_node_ ## int ## _
@@ -57,6 +59,9 @@ void FIBO_DECREASEKEY(FIBONAME* fibo, FIBONODE_NAME* key, const FIBOTYPE value);
 
 void FIBO_DELETE(FIBONAME* fibo);
 
+int FIBO_DEFAULTLESS(FIBOTYPE arg1, FIBOTYPE arg2);
+
+int FIBO_DEFAULTGREATER(FIBOTYPE arg1, FIBOTYPE arg2);
 #endif
 
 

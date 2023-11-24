@@ -1,4 +1,4 @@
-#define FIBOTYPE int
+#define FIBOTYPE double
 #include "fibonacci_heap.h"
 #include <stdlib.h>
 #include <math.h>
@@ -280,4 +280,14 @@ void FIBO_DELETE_HELPER(FIBONODE_NAME* node_)
 		curr = curr->next;
 		free(curr->prev);
 	} while (last == curr);
+}
+
+int FIBO_DEFAULTLESS(FIBOTYPE arg1, FIBOTYPE arg2)
+{
+	return arg1 < arg2;
+}
+
+int FIBO_DEFAULTGREATER(FIBOTYPE arg1, FIBOTYPE arg2)
+{
+	return arg1 > arg2;
 }
