@@ -89,7 +89,7 @@ static char * xstrdup(const char * s)
   @return   unsigned New size of the string.
  */
 /*--------------------------------------------------------------------------*/
-static unsigned strstrip(char * s)
+static size_t strstrip(char * s)
 {
     char *last = NULL ;
     char *dest = s;
@@ -106,7 +106,7 @@ static unsigned strstrip(char * s)
     *last = (char)0;
 
     memmove(dest,s,last - s + 1);
-    return last - s;
+    return (size_t)(last - s);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -655,19 +655,19 @@ static line_status iniparser_line(
         /* Section name */
         (void)sscanf(line, "[%[^]]", section);
         strstrip(section);
-        strlwc(section, section, len);
+        strlwc(section, section, (unsigned int)len);
         sta = LINE_SECTION ;
     } else if (sscanf (line, "%[^=] = \"%[^\"]\"", key, value) == 2
            ||  sscanf (line, "%[^=] = '%[^\']'",   key, value) == 2) {
         /* Usual key=value with quotes, with or without comments */
         strstrip(key);
-        strlwc(key, key, len);
+        strlwc(key, key, (unsigned int)len);
         /* Don't strip spaces from values surrounded with quotes */
         sta = LINE_VALUE ;
     } else if (sscanf (line, "%[^=] = %[^;#]", key, value) == 2) {
         /* Usual key=value without quotes, with or without comments */
         strstrip(key);
-        strlwc(key, key, len);
+        strlwc(key, key, (unsigned int)len);
         strstrip(value);
         /*
          * sscanf cannot handle '' or "" as empty values
@@ -686,7 +686,7 @@ static line_status iniparser_line(
          * key=#
          */
         strstrip(key);
-        strlwc(key, key, len);
+        strlwc(key, key, (unsigned int)len);
         value[0]=0 ;
         sta = LINE_VALUE ;
     } else {
