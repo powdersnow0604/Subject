@@ -32,7 +32,7 @@ namespace Visualizer {
 
 		if (PLOT_INFO.find(WinName) != PLOT_INFO.end()) {
 
-			int plot_height = PLOT_INFO[WinName].plot_height, plot_width = PLOT_INFO[WinName].plot_height;
+			int plot_height = PLOT_INFO[WinName].plot_height, plot_width = PLOT_INFO[WinName].plot_width;
 			int mat_height = (int)(plot_height * size_mul), mat_width = (int)(plot_width * size_mul);
 			int margin_height = (mat_height - plot_height) / 2, margin_width = (mat_width - plot_width) / 2;
 
@@ -43,6 +43,24 @@ namespace Visualizer {
 
 			vector<double> range_pointArr = pointArrRange(PLOT_INFO[WinName].points); //vector(4) xmin, xmax, ymin, ymax
 			vector<double> range_out = { 0, (double)((long long)plot_width - 1), 0, (double)((long long)plot_height - 1) };
+
+			if (PLOT_INFO[WinName].x_min < PLOT_INFO[WinName].x_max) {
+				range_pointArr[0] = PLOT_INFO[WinName].x_min;
+				range_pointArr[1] = PLOT_INFO[WinName].x_max;
+			}
+			else {
+				if(PLOT_INFO[WinName].x_max > range_pointArr[0]) range_pointArr[1] = PLOT_INFO[WinName].x_max;
+				else if(PLOT_INFO[WinName].x_min < range_pointArr[1]) range_pointArr[0] = PLOT_INFO[WinName].x_min;
+			}
+
+			if (PLOT_INFO[WinName].y_min < PLOT_INFO[WinName].y_max) {
+				range_pointArr[2] = PLOT_INFO[WinName].y_min;
+				range_pointArr[3] = PLOT_INFO[WinName].y_max;
+			}
+			else {
+				if (PLOT_INFO[WinName].y_max > range_pointArr[2]) range_pointArr[3] = PLOT_INFO[WinName].y_max;
+				else if (PLOT_INFO[WinName].y_min < range_pointArr[3]) range_pointArr[2] = PLOT_INFO[WinName].y_min;
+			}
 
 
 			//graph format
@@ -108,8 +126,44 @@ namespace Visualizer {
 				int plot_type = PLOT_INFO[WinName].partion_plot_type.front();	PLOT_INFO[WinName].partion_plot_type.pop();
 				int thickness = PLOT_INFO[WinName].partion_thickness.front(); PLOT_INFO[WinName].partion_thickness.pop();
 
-				if (plot_type == 1) {
+				if (plot_type == 3) {
 					for (size_t limit = index + num; index < limit; ++index) {
+						const vector<double>& temp = PLOT_INFO[WinName].points[index];
+						if (temp[0] < range_out[0] || temp[0] > range_out[1] || temp[1] < range_out[2] || temp[1] > range_out[3])
+							continue;
+						cv::line(print_mat, Point((int)(margin_width * 1.25 + PLOT_INFO[WinName].points[index][0]),
+							(int)(margin_height * 1.25 + ((long long)plot_height - 1) - PLOT_INFO[WinName].points[index][1])),
+							Point((int)(margin_width * 1.25 + PLOT_INFO[WinName].points[index][0]), (int)(margin_height * 1.25 + ((long long)plot_height - 1))), color, 1, 8);
+						cv::circle(print_mat, Point((int)(margin_width * 1.25 + PLOT_INFO[WinName].points[index][0]),
+							(int)(margin_height * 1.25 + ((long long)plot_height - 1) - PLOT_INFO[WinName].points[index][1])), 3, color, -1);
+					}
+				}
+				else if (plot_type == 2) {
+					std::vector<Point> points;
+					points.reserve(num * 2 - 2);
+
+					for (size_t limit = index + num; index < limit - 1; ++index) {
+						const vector<double>& temp = PLOT_INFO[WinName].points[index];
+						if (temp[0] < range_out[0] || temp[0] > range_out[1] || temp[1] < range_out[2] || temp[1] > range_out[3])
+							continue;
+						points.push_back(cv::Point((int)(margin_width * 1.25 + PLOT_INFO[WinName].points[index][0]),
+							(int)(margin_height * 1.25 + ((long long)plot_height - 1) - PLOT_INFO[WinName].points[index][1])));
+						points.push_back(cv::Point((int)(margin_width * 1.25 + PLOT_INFO[WinName].points[index][0]),
+							(int)(margin_height * 1.25 + ((long long)plot_height - 1) - PLOT_INFO[WinName].points[index+1][1])));
+					}
+					const vector<double>& temp = PLOT_INFO[WinName].points[index];
+					if (!(temp[0] < range_out[0] || temp[0] > range_out[1] || temp[1] < range_out[2] || temp[1] > range_out[3]))
+						points.push_back(cv::Point((int)(margin_width * 1.25 + PLOT_INFO[WinName].points[index][0]),
+							(int)(margin_height * 1.25 + ((long long)plot_height - 1) - PLOT_INFO[WinName].points[index][1])));
+					++index;
+
+					cv::polylines(print_mat, points, false, color, thickness);
+				}
+				else if (plot_type == 1) {
+					for (size_t limit = index + num; index < limit; ++index) {
+						const vector<double>& temp = PLOT_INFO[WinName].points[index];
+						if (temp[0] < range_out[0] || temp[0] > range_out[1] || temp[1] < range_out[2] || temp[1] > range_out[3])
+							continue;
 						cv::circle(print_mat, Point((int)(margin_width * 1.25 + PLOT_INFO[WinName].points[index][0]),
 							(int)(margin_height * 1.25 + ((long long)plot_height - 1) - PLOT_INFO[WinName].points[index][1])), thickness, color, -1);
 					}
@@ -119,6 +173,9 @@ namespace Visualizer {
 					points.reserve(num);
 
 					for (size_t limit = index + num; index < limit; ++index) {
+						const vector<double>& temp = PLOT_INFO[WinName].points[index];
+						if (temp[0] < range_out[0] || temp[0] > range_out[1] || temp[1] < range_out[2] || temp[1] > range_out[3])
+							continue;
 						points.push_back(cv::Point((int)(margin_width * 1.25 + PLOT_INFO[WinName].points[index][0]),
 							(int)(margin_height * 1.25 + ((long long)plot_height - 1) - PLOT_INFO[WinName].points[index][1])));
 					}
@@ -146,4 +203,27 @@ namespace Visualizer {
 		std::uniform_int_distribution<int> idist(0, 255);
 		return Scalar(idist(gen), idist(gen), idist(gen));
 	}
+
+
+	void x_min(const string& WinName, double x)
+	{
+		if (x <= 0) return;
+		if (PLOT_INFO.find(WinName) != PLOT_INFO.end()) PLOT_INFO[WinName].x_min = x;
+	}
+	void x_max(const string& WinName, double x)
+	{
+		if (x <= 0) return;
+		if (PLOT_INFO.find(WinName) != PLOT_INFO.end()) PLOT_INFO[WinName].x_max = x;
+	}
+	void y_min(const string& WinName, double y)
+	{
+		if (y <= 0) return;
+		if (PLOT_INFO.find(WinName) != PLOT_INFO.end()) PLOT_INFO[WinName].y_min = y;
+	}
+	void y_max(const string& WinName, double y)
+	{
+		if (y <= 0) return;
+		if (PLOT_INFO.find(WinName) != PLOT_INFO.end()) PLOT_INFO[WinName].y_max = y;
+	}
+
 }

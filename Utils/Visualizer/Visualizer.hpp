@@ -1,5 +1,7 @@
-#ifndef __VISUALIZER__
-#define __VISUALIZER__
+#ifndef __VISUALIZER_HPP__
+#define __VISUALIZER_HPP__
+
+#pragma warning(disable: 4819)
 
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
@@ -10,6 +12,8 @@
 #include <random>
 #include <algorithm>
 #include <iostream>
+#include <type_traits>
+#include <limits>
 
 using std::vector;
 using std::map;
@@ -21,6 +25,7 @@ using cv::Rect;
 using cv::Point;
 
 namespace Visualizer {
+	//class
 	typedef struct PlotInfo_ {
 		vector<vector<double>> points;
 		queue<size_t> partion_size;
@@ -30,8 +35,40 @@ namespace Visualizer {
 		string title;
 		int plot_height;
 		int plot_width;
-		PlotInfo_(): title("__default__"), plot_height(400), plot_width(400) {}
+		double x_min;
+		double x_max;
+		double y_min;
+		double y_max;
+		PlotInfo_(): title("__default__"), plot_height(400), plot_width(400), x_min(std::numeric_limits<double>::max()), 
+			x_max(std::numeric_limits<double>::lowest()), y_min(std::numeric_limits<double>::max()), y_max(std::numeric_limits<double>::lowest()) {}
 	}Plot_Info;
+
+	template <typename T>
+		//std::enable_if_t<std::is_arithmetic_v<std::remove_reference_t<decltype(
+		//std::declval<std::remove_reference_t<decltype(std::declval<T>().operator[](size_t{}))>>().operator[](size_t{})) >> , bool> = true>
+	class _2DArraylike {
+		const T& arr;
+	public:
+		static const bool check = std::is_arithmetic_v < std::remove_reference_t<decltype(std::declval<T>().operator[](size_t{}).operator[](size_t{})) >> ;
+		_2DArraylike(const T& _arr) : arr(_arr) {}
+		_2DArraylike() = delete;
+		decltype(arr.size()) size() const { return arr.size(); }
+		decltype(arr.operator[](size_t{})) operator[](size_t _ind) const { return arr[_ind]; }
+	};
+
+
+	template <typename T>
+	struct is_2DArraylike {
+	private:
+		template<class, class = void>
+		struct has_size : std::false_type {};
+
+		template<class T>
+		struct has_size < T, std::void_t<decltype(std::declval<T>().size())>> : std::true_type {};
+	public:
+		static const bool value = std::is_arithmetic_v < std::remove_reference_t<decltype(std::declval<T>().operator[](size_t{}).operator[](size_t{})) >> &&
+			has_size<T>::value;
+	};
 	
 	//static variable for saving informations about plotting 
 	extern map<std::string, Plot_Info> PLOT_INFO;
@@ -86,15 +123,24 @@ namespace Visualizer {
 
 	
 	//usable functions
-	template <typename type>
-	void plot(const std::vector<std::vector<type>>& pointArr, const std::string& WinName, const Scalar& color = Scalar(0, 0, 0), int plot_type = 0, int thickness = 1)
+	template <typename type, std::enable_if_t<is_2DArraylike<type>::value, bool> = true>
+	void plot(const type& pointArr, const std::string& WinName, const Scalar& color = Scalar(0, 0, 0), int plot_type = 0, int thickness = 1)
 	{
+		//const _2DArraylike<type>& pointArr
+		//const std::vector<std::vector<type>>& pointArr
 		if (pointArr.size() != 0) {
 			PLOT_INFO[WinName].partion_color.push(color);
 			PLOT_INFO[WinName].partion_size.push(pointArr.size());
 			PLOT_INFO[WinName].partion_plot_type.push(plot_type);
-			PLOT_INFO[WinName].points.insert(PLOT_INFO[WinName].points.end(), pointArr.begin(), pointArr.end());
 			PLOT_INFO[WinName].partion_thickness.push(thickness);
+			
+			PLOT_INFO[WinName].points.reserve(PLOT_INFO[WinName].points.size() + pointArr.size());
+
+			for (size_t i = 0; i < pointArr.size(); ++i) {
+				PLOT_INFO[WinName].points.push_back({ (double)pointArr[i][0], (double)pointArr[i][1]});
+			}
+
+			//PLOT_INFO[WinName].points.insert(PLOT_INFO[WinName].points.end(), pointArr.begin(), pointArr.end());
 		}
 	}
 
@@ -212,6 +258,12 @@ namespace Visualizer {
 
 
 	Scalar randomColor();
+
+
+	void x_min(const string& WinName, double x);
+	void x_max(const string& WinName, double x);
+	void y_min(const string& WinName, double y);
+	void y_max(const string& WinName, double y);
 }
 
 #endif
