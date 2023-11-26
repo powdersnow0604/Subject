@@ -825,6 +825,24 @@ namespace SupportVector {
 		else if (comp(vec[mid], key)) return bsearch(vec, 0, (mid == 0) ? 0 : (mid - 1), key, comp);
 		else return bsearch(vec, mid+1, e, key, comp);
 	}
+
+
+	template<typename T, std::enable_if_t<!is_vector<T>::value, int> = 0>
+	size_t total_item_num(T vec)
+	{
+		return 1;
+	}
+
+	template<typename T, std::enable_if_t<is_vector<T>::value, int> = 0>
+	size_t total_item_num(const T& vec)
+	{
+		size_t total = 0;
+		for (size_t i = 0; i < vec.size(); ++i) {
+			total += total_item_num(vec[i]);
+		}
+
+		return total;
+	}
 };
 
 #endif
