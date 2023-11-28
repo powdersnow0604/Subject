@@ -843,6 +843,19 @@ namespace SupportVector {
 
 		return total;
 	}
+
+	template <typename T>
+	vector<T> random_vector(size_t num, T low, T high) {
+		std::mt19937 gen{ std::random_device()() };
+		std::uniform_real_distribution<T> dist(low, high);
+		vector<T> res; res.reserve(num);
+
+		for (size_t i = num; i != 0; --i) {
+			res.push_back(dist(gen));
+		}
+
+		return res;
+	}
 };
 
 #endif

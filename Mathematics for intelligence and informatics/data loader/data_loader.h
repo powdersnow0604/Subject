@@ -53,6 +53,14 @@ namespace DataLoader{
 	// 0: Brain, 1: John, 2: Aphra, 3: Aoife
 	DataModel load_guess_who_game(void);
 
+
+	/*		for linear regression		*/
+	//	[Rental Price]
+	//des1: Size
+	//des2: Floor
+	//des3: Broadband Rate
+	//target: Rental Price
+	DataModel load_rental_price(void);
 }
 
 #endif

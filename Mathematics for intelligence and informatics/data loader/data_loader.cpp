@@ -38,4 +38,13 @@ namespace DataLoader {
 		return { input, target };
 	}
 
+
+	DataModel load_rental_price(void)
+	{
+		TargetModel target = { 320, 380, 400, 390, 385, 410, 480, 600, 570, 620 };
+		InputModel input = { {500,4,8}, {550, 7, 50}, {620, 9, 7}, {630,5,24}, {665,8,100},{700,4,8},{770,10,7}, {880,12,50}, {920,14,8},{1000,9,24} };
+
+		return { input, target };
+	}
+
 }

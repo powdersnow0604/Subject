@@ -4,6 +4,7 @@
 #include <vector>
 #include <map>
 #include <memory>
+#include <string>
 
 using std::vector;
 using std::map;
@@ -47,6 +48,8 @@ namespace BasicAi {
 		};
 
 		class DataModel {
+
+			bool is_string_digit(std::string str);
 		public:
 			std::shared_ptr< std::vector<std::vector<double>>> input;
 			std::shared_ptr<std::vector<double>> target;
@@ -54,6 +57,7 @@ namespace BasicAi {
 
 			DataModel(InputModel& i, TargetModel& t);
 			DataModel(const std::vector<std::vector<double>>& _input, const std::vector<double>& _target);
+			DataModel(const DataModel& other) : size(other.size), input(other.input), target(other.target) {};
 			DataModel();
 
 			DataModel& operator= (const DataModel& other);
@@ -65,6 +69,9 @@ namespace BasicAi {
 			const Vector& getTarget() const;
 			Vector2D& getInput();
 			Vector& getTarget();
+			vector<map<std::string, double>> read_csv(const char* path);
+			void print() const;
+			DataModel copy() const;
 		};
 
 
@@ -76,6 +83,10 @@ namespace BasicAi {
 		};
 
 		InputModel randomInput(double arg1, double arg2, size_t size, int dim, RANDOM_ENGINE engine_type = RANDOM_ENGINE::RE_GAUSSION);
+
+		Vector2D transformInput2Value(const vector<vector<std::string>>& input, const vector<map<std::string, double>>& table);
+
+		void printMappingTable(const vector<map<std::string, double>>& table);
 	}
 }
 

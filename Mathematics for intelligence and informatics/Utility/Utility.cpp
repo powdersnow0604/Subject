@@ -5,7 +5,7 @@
 namespace BasicAi {
 	namespace Utility {
 
-		DataModel StandardScaler::transform(const DataModel& dm)
+		DataModel StandardScaler::transform2(const DataModel& dm)
 		{
 			std::vector<std::vector<double>> scaled_input(dm.input->size(), std::vector<double>(dm[0].size()));
 			auto mean_dm = mean(dm);
@@ -19,6 +19,58 @@ namespace BasicAi {
 
 			return { scaled_input, *dm.target };
 		}
+
+		void StandardScaler::fit(const DataModel& Dm, bool include_target)
+		{
+			calc_min_max(Dm, include_target);
+		}
+
+		DataModel StandardScaler::transform(const DataModel& Dm, bool include_target)
+		{
+			DataModel res = Dm.copy();
+
+			for (size_t i = 0; i < Dm.size; ++i) {
+				for (size_t j = 0; j < Dm[0].size(); ++j) {
+					res[i][j] = (res[i][j] - min[j]) / (max[j] - min[j]);
+				}
+				if (include_target) {
+					res(i) = (res(i) - min.back()) / (max.back() - min.back());
+				}
+			}
+
+			return res;
+		}
+
+		Vector StandardScaler::calc_min_max(const DataModel& Dm, bool include_target)
+		{
+			min.clear(); max.clear();
+			if (include_target) {
+				min = Dm[0]; min.push_back(Dm(0));
+				max = Dm[0]; max.push_back(Dm(0));
+
+				for (size_t i = 1; i < Dm.size; ++i) {
+					for (size_t j = 0; j < Dm[0].size(); ++j) {
+						if (min[j] > Dm[i][j]) min[j] = Dm[i][j];
+						else if (max[j] < Dm[i][j]) max[j] = Dm[i][j];
+					}
+					if (min.back() > Dm(i)) min.back() = Dm(i);
+					else if (max.back() < Dm(i)) max.back() = Dm(i);
+				}
+			}
+			else {
+				min = Dm[0];
+				max = Dm[0];
+
+				for (size_t i = 1; i < Dm.size; ++i) {
+					for (size_t j = 0; j < Dm[0].size(); ++j) {
+						if (min[j] > Dm[i][j]) min[j] = Dm[i][j];
+						else if (max[j] < Dm[i][j]) max[j] = Dm[i][j];
+					}
+				}
+			}
+
+		}
+
 
 		std::vector<double> BasicAi::Utility::mean(const DataModel& dm)
 		{
@@ -77,7 +129,5 @@ namespace BasicAi {
 
 			return res;
 		}
-
-		
 	}
 }

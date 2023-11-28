@@ -1,8 +1,7 @@
 #ifndef __UTILITY__
 #define __UTILITY__
 
-#include "DataModel.h"
-#include "SupportVector.hpp"
+#include "pch.h"
 #include <functional>
 
 using namespace BasicAi::DataModels;
@@ -12,8 +11,15 @@ namespace BasicAi {
 	namespace Utility {
 		//class
 		class StandardScaler {
+			Vector min;
+			Vector max;
+
+			Vector calc_min_max(const DataModel& Dm, bool include_target = false);
 		public:
-			static DataModel transform(const DataModel& dm);
+			//mean 0, stdev 1
+			static DataModel transform2(const DataModel& dm);
+			void fit(const DataModel& Dm, bool include_target = false);
+			DataModel transform(const DataModel& Dm, bool include_target = false);
 		};
 
 		//fuction
@@ -21,6 +27,7 @@ namespace BasicAi {
 		vector<double> stdev(const DataModel& dm, const std::vector<double>& mean);
 		double EuclidianDistance(const vector<double>& point1, const vector<double>& point2);
 		vector<double> absDiff(const vector<double>& point1, const vector<double>& point2);
+		
 		
 
 		//templates
@@ -49,6 +56,7 @@ namespace BasicAi {
 			return min;
 		}
 
+		
 		
 	}
 }
