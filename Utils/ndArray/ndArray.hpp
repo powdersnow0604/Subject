@@ -11,7 +11,7 @@
 
 
 namespace na {
-	/////////////////////////////////////////////////////////////////////		declaration		///////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////		forward declaration		///////////////////////////////////////////////////////////////////
 	template <typename E>
 	class ndArrayTypeWrapper;
 
@@ -21,7 +21,7 @@ namespace na {
 	public:
 		static constexpr bool is_leaf = false;
 		auto operator[](size_t i) const { return static_cast<E const&>(*this)[i]; }
-		auto operator()(size_t i) const { return static_cast<E const&>(*this)(i); }
+		auto at(size_t i) const { return static_cast<E const&>(*this).at(i); }
 		std::vector<size_t> shape() const { return static_cast<E const&>(*this).shape(); }
 		const std::vector<size_t>& raw_shape() const { return static_cast<E const&>(*this).raw_shape(); }
 	};
@@ -52,7 +52,7 @@ namespace na {
 			assert(u.raw_shape() == v.raw_shape());
 		}
 		decltype(auto) operator[](size_t i) const { return _u[i] + _v[i]; }
-		decltype(auto) operator()(size_t i) const { return _u(i) + _v(i); }
+		decltype(auto) at(size_t i) const { return _u.at(i) + _v.at(i); }
 		const std::vector<size_t>& raw_shape()               const { return _u.raw_shape(); }
 	};
 
@@ -67,7 +67,7 @@ namespace na {
 			assert(u.raw_shape() == v.raw_shape());
 		}
 		decltype(auto) operator[](size_t i) const { return _u[i] * _v[i]; }
-		decltype(auto) operator()(size_t i) const { return _u(i) * _v(i); }
+		decltype(auto) at(size_t i) const { return _u.at(i) * _v.at(i); }
 		const std::vector<size_t>& raw_shape()               const { return _u.raw_shape(); }
 	};
 
@@ -82,7 +82,7 @@ namespace na {
 			assert(u.raw_shape() == v.raw_shape());
 		}
 		decltype(auto) operator[](size_t i) const { return _u[i] - _v[i]; }
-		decltype(auto) operator()(size_t i) const { return _u(i) - _v(i); }
+		decltype(auto) at(size_t i) const { return _u.at(i) - _v.at(i); }
 		const std::vector<size_t>& raw_shape()               const { return _u.raw_shape(); }
 	};
 
@@ -97,7 +97,7 @@ namespace na {
 			assert(u.raw_shape() == v.raw_shape());
 		}
 		decltype(auto) operator[](size_t i) const { return _u[i] / _v[i]; }
-		decltype(auto) operator()(size_t i) const { return _u(i) / _v(i); }
+		decltype(auto) at(size_t i) const { return _u.at(i) / _v.at(i); }
 		const std::vector<size_t>& raw_shape()               const { return _u.raw_shape(); }
 	};
 
@@ -113,7 +113,7 @@ namespace na {
 		static constexpr bool is_leaf = false;
 		ndArrayScalarSum(E1 const& u, E2 const v) : _u(u), _v(v) {}
 		decltype(auto) operator[](size_t i) const { return _u[i] + _v; }
-		decltype(auto) operator()(size_t i) const { return _u(i) + _v; }
+		decltype(auto) at(size_t i) const { return _u.at(i) + _v; }
 		const std::vector<size_t>& raw_shape()               const { return _u.raw_shape(); }
 	};
 	
@@ -126,7 +126,7 @@ namespace na {
 		static constexpr bool is_leaf = false;
 		ndArrayScalarMul(E1 const& u, E2 const v) : _u(u), _v(v) {}
 		decltype(auto) operator[](size_t i) const { return _u[i] * _v; }
-		decltype(auto) operator()(size_t i) const { return _u(i) * _v; }
+		decltype(auto) at(size_t i) const { return _u.at(i) * _v; }
 		const std::vector<size_t>& raw_shape()               const { return _u.raw_shape(); }
 	};
 
@@ -139,7 +139,7 @@ namespace na {
 		static constexpr bool is_leaf = false;
 		ndArrayScalarSub(E1 const& u, E2 const v) : _u(u), _v(v) {}
 		decltype(auto) operator[](size_t i) const { return _u[i] - _v; }
-		decltype(auto) operator()(size_t i) const { return _u(i) - _v; }
+		decltype(auto) at(size_t i) const { return _u.at(i) - _v; }
 		const std::vector<size_t>& raw_shape()               const { return _u.raw_shape(); }
 	};
 	
@@ -152,7 +152,7 @@ namespace na {
 		static constexpr bool is_leaf = false;
 		ndArrayScalarDiv(E1 const& u, E2 const v) : _u(u), _v(v) {}
 		decltype(auto) operator[](size_t i) const { return _u[i] / _v; }
-		decltype(auto) operator()(size_t i) const { return _u(i) / _v; }
+		decltype(auto) at(size_t i) const { return _u.at(i) / _v; }
 		const std::vector<size_t>& raw_shape()               const { return _u.raw_shape(); }
 	};
 	
@@ -160,6 +160,84 @@ namespace na {
 
 
 	
+	#pragma region supporters_for_vector
+	template<typename >
+	struct __supporter_is_vector : std::false_type {};
+
+	template<typename T>
+	struct __supporter_is_vector<std::vector<T>> : std::true_type {};
+
+	template< class T >
+	inline constexpr bool __supporter_is_vector_v = __supporter_is_vector<T>::value;
+
+
+	template<typename T>
+	struct __supporter_vector_element_type {
+		using value_type = T;
+	};
+
+	template<typename T>
+	struct __supporter_vector_element_type <std::vector<T>> {
+		using value_type = __supporter_vector_element_type<T>::value_type;
+	};
+
+	template<typename T>
+	using __supporter_vector_element_type_v = __supporter_vector_element_type<T>::value_type;
+
+
+	template<typename T>
+	struct __supporter_dim {
+		static constexpr size_t value = 0;
+	};
+
+	template<typename T>
+	struct __supporter_dim<std::vector<T>> {
+		static constexpr size_t value = __supporter_dim<T>::value + 1;
+	};
+
+	template<typename T>
+	constexpr size_t __supporter_dim_v = __supporter_dim<T>::value;
+
+
+	template <typename T>
+	bool __supporter_is_rect_vector(const std::vector<T>& vec) {
+
+		if constexpr (__supporter_dim<std::vector<T>>::value == 1) {
+			return false;
+		}
+		else if constexpr (__supporter_dim<std::vector<T>>::value == 2) {
+			const size_t size = vec[0].size();
+			for (size_t i = 1; i < vec.size(); ++i) {
+				if (size != vec[i].size()) return false;
+			}
+			return true;
+		}
+		else {
+			const size_t size = vec[0].size();
+			for (size_t i = 1; i < vec.size(); ++i) {
+				if (!__supporter_is_rect_vector(vec[i])) return false;
+				if (size != vec[i].size()) return false;
+			}
+			return true;
+		}
+	}
+
+
+	template <typename T>
+	void __supporter_calc_shape(const std::vector<T>& vec, std::vector<size_t>& shp) {
+		if constexpr (__supporter_dim<std::vector<T>>::value == 1) {
+			shp.push_back(vec.size());
+			return;
+		}
+		else {
+			shp.push_back(vec.size());
+			__supporter_calc_shape(vec[0], shp);
+		}
+	}
+	#pragma endregion
+
+
+
 	/////////////////////////////////////////////////////////////////////		ndArray		///////////////////////////////////////////////////////////////////
 	template <typename T>
 	class ndArray : public ndArrayExpression<ndArray<T>> {
@@ -169,33 +247,7 @@ namespace na {
 		std::vector<size_t> _shape;
 		
 	public:
-		#pragma region freind_declaration
 		friend class ndArrayTypeWrapper<T>;
-
-		template<typename E1, typename E2>
-		friend class ndArraySum;
-
-		template<typename E1, typename E2>
-		friend class ndArrayMul;
-
-		template<typename E1, typename E2>
-		friend class ndArraySub;
-
-		template<typename E1, typename E2>
-		friend class ndArrayDiv;
-		
-		template<typename E1, typename E2, std::enable_if_t<std::is_arithmetic_v<E2>, bool>>
-		friend class ndArrayScalarSum;
-
-		template<typename E1, typename E2, std::enable_if_t<std::is_arithmetic_v<E2>, bool>>
-		friend class ndArrayScalarMul;
-
-		template<typename E1, typename E2, std::enable_if_t<std::is_arithmetic_v<E2>, bool>>
-		friend class ndArrayScalarSum;
-
-		template<typename E1, typename E2, std::enable_if_t<std::is_arithmetic_v<E2>, bool>>
-		friend class ndArrayScalarMul;
-		#pragma endregion
 
 		static constexpr bool is_leaf = true;
 
@@ -220,7 +272,7 @@ namespace na {
 
 		ndArrayTypeWrapper<T> operator[](size_t index) const;
 
-		T operator()(size_t i) const { return item[i]; }
+		T at(size_t i) const { return item[i]; }
 
 		const std::vector<size_t>& raw_shape() const { return _shape; }
 
@@ -231,6 +283,8 @@ namespace na {
 		ndArray<T> copy();
 
 		void reshape(std::initializer_list<size_t> list);
+
+		const T* data() const { return item; }
 	};
 
 
@@ -246,7 +300,7 @@ namespace na {
 		//functions
 		ndArrayTypeWrapper(size_t index, size_t _dim, E* _item, const ndArray<E>* _array) : dim(_dim), array(_array), item(_item + index * _array->_shape[_dim]) {};
 
-		operator E&() { assert(dim == 0);  return *item; }
+		operator E& () {assert(dim == 0);  return *item; }
 
 		template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool> = true>
 		ndArrayTypeWrapper<E>& operator=(const T v) { assert(dim == 0); *item = v; return *this; }
@@ -258,6 +312,17 @@ namespace na {
 
 	};
 
+	/////////////////////////////////////////////////////////////////////		declaration		///////////////////////////////////////////////////////////////////
+
+
+	template <typename T>
+	void __support_array_func(const std::vector<T>& vec, __supporter_vector_element_type_v<std::vector<T>>* item, const std::vector<size_t>& shp);
+
+	template<typename E>
+	ndArray<__supporter_vector_element_type_v<std::vector<E>>> array(const std::vector<E>& vec);
+
+	template<typename T>
+	void __support_ndArray_print(T* item, const std::vector<size_t>& shp, const std::vector<size_t>& raw_shp, size_t dim, size_t highest_dim);
 
 	/////////////////////////////////////////////////////////////////////		definition		///////////////////////////////////////////////////////////////////
 
@@ -306,9 +371,9 @@ namespace na {
 		*ref_cnt = 1;
 
 		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] = expr(i);
+			item[i] = expr.at(i);
 		}
-		item[0] = expr(0);
+		item[0] = expr.at(0);
 	}
 
 	template <typename T>
@@ -391,12 +456,6 @@ namespace na {
 	}
 
 	template <typename T>
-	std::ostream& operator << (std::ostream& out, const ndArray<T>& vec)
-	{
-		return out;
-	}
-
-	template <typename T>
 	void ndArray<T>::reshape(std::initializer_list<size_t> list)
 	{
 		size_t sum = 0;
@@ -414,7 +473,6 @@ namespace na {
 	}
 
 
-	
 	#pragma region support_arithmetic_operator
 	template <typename E1, typename E2>
 	ndArraySum<E1, E2>
@@ -466,6 +524,92 @@ namespace na {
 	}
 	
 	#pragma endregion
+
+
+	template <typename T>
+	void __support_array_func(const std::vector<T>& vec, __supporter_vector_element_type_v<std::vector<T>>* item, const std::vector<size_t>& shp) {
+		if constexpr (__supporter_dim_v<std::vector<T>> == 1) {
+			for (size_t i = vec.size()-1; i != 0; --i) {
+				item[i] = vec[i];
+			}
+			item[0] = vec.front();
+
+			return;
+		}
+		else {
+			for (size_t i = vec.size() - 1; i != 0; --i) {
+				__support_array_func(vec[i], item + i * shp[__supporter_dim_v<std::vector<T>> -1], shp);
+			}
+			__support_array_func(vec[0], item, shp);
+		}
+	}
+	
+	template <typename E>
+	ndArray<__supporter_vector_element_type_v<std::vector<E>>> array(const std::vector<E>& vec) {
+		assert(__supporter_is_rect_vector(vec));
+		std::vector<size_t> shp; shp.reserve(__supporter_dim_v<std::vector<E>>);
+		__supporter_calc_shape(vec, shp);
+	
+		ndArray<__supporter_vector_element_type_v<std::vector<E>>> res(shp);
+
+		__support_array_func(vec, (__supporter_vector_element_type_v<std::vector<E>>*) res.data(), res.raw_shape());
+
+		return res;
+	}
+
+	template<typename T>
+	void __support_ndArray_print(T* item, const std::vector<size_t>& shp, const std::vector<size_t>& raw_shp, size_t dim, size_t highest_dim)
+	{
+		using std::cout;
+		using std::endl;
+
+		if (dim == 1) {
+			cout << '[';
+			for (size_t i = 0; i != shp.back(); ++i) {
+				cout << item[i];
+				if (i != shp.back() - 1) cout << ", ";
+			}
+			cout << ']';
+
+			if (1 == highest_dim) {
+				cout << endl;
+				return;
+			}
+		}
+		else {
+			size_t ind = highest_dim - dim;
+			std::cout << '[';
+			for (size_t i = 0; i < shp[ind]; ++i) {
+				if (i != 0) {
+					for (size_t j = 0; j < highest_dim - dim + 1; ++j)
+						std::cout << ' ';
+				}
+
+				__support_ndArray_print(item + i * raw_shp[dim-1], shp, raw_shp, dim-1, highest_dim);
+
+				if (i != shp[ind] - 1) {
+					std::cout << "," << std::endl;
+					for (size_t j = 0; j < dim / 3; ++j) std::cout << std::endl;
+				}
+
+			}
+			std::cout << ']';
+
+			if (dim == highest_dim) {
+				std::cout << std::endl;
+				return;
+			}
+		}
+	}
+
+	template<typename T>
+	std::ostream& operator << (std::ostream& out, const ndArray<T>& arr)
+	{
+		const std::vector<size_t>& shp = arr.shape();
+		__support_ndArray_print((T*)arr.data(), shp, arr.raw_shape(), shp.size(), shp.size());
+
+		return out;
+	}
 }
 
 #endif

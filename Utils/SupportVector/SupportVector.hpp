@@ -1,4 +1,4 @@
-//c++ 17
+//c++ 20
 
 #ifndef __SUPPORTVECTOR__
 #define __SUPPORTVECTOR__
@@ -47,16 +47,16 @@ namespace SupportVector {
 
 	template<typename T>
 	struct dim {
-		static const size_t value = 0;
+		static constexpr size_t value = 0;
 	};
 
 	template<typename T>
 	struct dim<std::vector<T>> {
-		static const size_t value = dim<T>::value + 1;
+		static constexpr size_t value = dim<T>::value + 1;
 	};
 
 	template<typename T>
-	size_t dim_v = dim<T>::value;
+	constexpr size_t dim_v = dim<T>::value;
 
 
 	template<size_t N, typename T>
@@ -855,6 +855,72 @@ namespace SupportVector {
 		}
 
 		return res;
+	}
+
+	template <typename T>
+	bool is_square_vector(const vector<T>& vec) {
+
+		if constexpr (dim<vector<T>>::value == 1) {
+			return false;
+		}
+		else if constexpr (dim<vector<T>>::value == 2) {
+			for (size_t i = 0; i < vec.size(); ++i) {
+				if (vec.size() != vec[i].size()) return false;
+			}
+			return true;
+		}
+		else {
+			for (size_t i = 0; i < vec.size(); ++i) {
+				if (!is_square_vector(vec[i])) return false;
+				if (vec.size() != vec[i].size()) return false;
+			}
+			return true;
+		}
+	}
+
+	template <typename T>
+	bool is_rect_vector(const vector<T>& vec) {
+
+		if constexpr (dim<vector<T>>::value == 1) {
+			return false;
+		}
+		else if constexpr (dim<vector<T>>::value == 2) {
+			const size_t size = vec[0].size();
+			for (size_t i = 1; i < vec.size(); ++i) {
+				if (size != vec[i].size()) return false;
+			}
+			return true;
+		}
+		else {
+			const size_t size = vec[0].size();
+			for (size_t i = 1; i < vec.size(); ++i) {
+				if (!is_rect_vector(vec[i])) return false;
+				if (size != vec[i].size()) return false;
+			}
+			return true;
+		}
+	}
+
+	template <typename T>
+	void calc_shape_helper(const vector<T>& vec, vector<size_t>& shp) {
+		if constexpr (dim<vector<T>>::value == 1) {
+			shp.push_back(vec.size());
+			return;
+		}
+		else {
+			shp.push_back(vec.size());
+			calc_shape_helper(vec[0], shp);
+		}
+	}
+
+	template <typename T>
+	vector<size_t> calc_shape(const vector<T>& vec) {
+		if (!is_rect_vector(vec)) return {};
+
+		vector<size_t> shp; shp.reserve(dim_v<vector<T>>);
+		calc_shape_helper(vec, shp);
+
+		return shp;
 	}
 };
 
