@@ -203,7 +203,7 @@ namespace na {
 	bool __supporter_is_rect_vector(const std::vector<T>& vec) {
 
 		if constexpr (__supporter_dim<std::vector<T>>::value == 1) {
-			return false;
+			return true;
 		}
 		else if constexpr (__supporter_dim<std::vector<T>>::value == 2) {
 			const size_t size = vec[0].size();
@@ -247,7 +247,8 @@ namespace na {
 		std::vector<size_t> _shape;
 		
 	public:
-		friend class ndArrayTypeWrapper<T>;
+		template<typename E>
+		friend class ndArrayTypeWrapper;
 
 		static constexpr bool is_leaf = true;
 
@@ -271,6 +272,8 @@ namespace na {
 		void assign(const std::vector<E>& vec);
 
 		ndArrayTypeWrapper<T> operator[](size_t index) const;
+
+		ndArray<T>& operator=(const ndArray<T>& other);
 
 		T at(size_t i) const { return item[i]; }
 
@@ -304,6 +307,14 @@ namespace na {
 
 		template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool> = true>
 		ndArrayTypeWrapper<E>& operator=(const T v) { assert(dim == 0); *item = v; return *this; }
+
+		template <typename T>
+		ndArrayTypeWrapper<E>& operator=(const ndArrayTypeWrapper<T>& v);
+
+		ndArrayTypeWrapper<E>& operator=(const ndArrayTypeWrapper<E>& v);
+
+		template <typename T>
+		ndArrayTypeWrapper<E>& operator=(const ndArray<T>& v);
 
 		ndArrayTypeWrapper<E> operator[](size_t index) {
 			assert(dim != 0);
@@ -400,7 +411,7 @@ namespace na {
 	template <typename T>
 	ndArray<T>::~ndArray() noexcept
 	{
-		if (--(*ref_cnt) == 0 && original != nullptr) {
+		if (original != nullptr && --(*ref_cnt) == 0) {
 			free(original);
 		}
 	}
@@ -410,6 +421,18 @@ namespace na {
 	{ 
 		return ndArrayTypeWrapper<T>(index, _shape.size()-2, item, this);
 	};
+
+	template <typename T>
+	ndArray<T>& ndArray<T>::operator=(const ndArray<T>& other)
+	{
+		if (original != nullptr && --(*ref_cnt) == 0) {
+			free(original);
+		}
+
+		item = other.item;
+		original = other.original;
+		_shape = other._shape;
+	}
 
 	template <typename T>
 	std::vector<size_t> ndArray<T>::shape() const
@@ -470,6 +493,58 @@ namespace na {
 		for (auto& elem : list) {
 			_shape[i++] = elem;
 		}
+	}
+
+	
+	template<typename E>
+	template <typename T>
+	ndArrayTypeWrapper<E>& ndArrayTypeWrapper<E>::operator=(const ndArrayTypeWrapper<T>& v)
+	{
+		assert(dim == v.dim);
+		for (size_t i = dim; i != 0; --i) {
+			assert(this->array->_shape[i] == v.array->_shape[i]);
+		}
+
+		for (size_t i = this->array->_shape[dim] - 1; i != 0; --i) {
+			item[i] = v.item[i];
+		}
+		item[0] = v.item[0];
+
+		return *this;
+	}
+
+	template<typename E>
+	template <typename T>
+	ndArrayTypeWrapper<E>& ndArrayTypeWrapper<E>::operator=(const ndArray<T>& v)
+	{
+		assert(dim == v._shape.size() - 1);
+
+		for (size_t i = dim; i != 0; --i) {
+			assert(this->array->_shape[i] == v._shape[i]);
+		}
+		
+		for (size_t i = v._shape[dim] - 1; i != 0; --i) {
+			item[i] = v.item[i];
+		}
+		item[0] = v.item[0];
+
+		return *this;
+	}
+
+	template<typename E>
+	ndArrayTypeWrapper<E>& ndArrayTypeWrapper<E>::operator=(const ndArrayTypeWrapper<E>& v)
+	{
+		assert(dim == v.dim);
+		for (size_t i = dim; i != 0; --i) {
+			assert(this->array->_shape[i] == v.array->_shape[i]);
+		}
+
+		for (size_t i = this->array->_shape[dim] - 1; i != 0; --i) {
+			item[i] = v.item[i];
+		}
+		item[0] = v.item[0];
+
+		return *this;
 	}
 
 
