@@ -882,7 +882,7 @@ namespace SupportVector {
 	bool is_rect_vector(const vector<T>& vec) {
 
 		if constexpr (dim<vector<T>>::value == 1) {
-			return false;
+			return true;
 		}
 		else if constexpr (dim<vector<T>>::value == 2) {
 			const size_t size = vec[0].size();
