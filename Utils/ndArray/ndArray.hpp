@@ -245,7 +245,8 @@ namespace na {
 		T* original;
 		size_t* ref_cnt;
 		std::vector<size_t> _shape;
-		
+
+
 	public:
 		template<typename E>
 		friend class ndArrayTypeWrapper;
@@ -253,10 +254,6 @@ namespace na {
 		static constexpr bool is_leaf = true;
 
 		//functions
-		ndArray(std::initializer_list<size_t> list);
-
-		ndArray(const std::vector<size_t>& vec);
-
 		template <typename E>
 		ndArray(ndArrayExpression<E> const& expr);
 
@@ -265,11 +262,6 @@ namespace na {
 		ndArray() : item(nullptr), original(nullptr), ref_cnt(nullptr) {}
 
 		~ndArray() noexcept;
-
-		void assign(std::initializer_list<T> list);
-
-		template <typename E>
-		void assign(const std::vector<E>& vec);
 
 		ndArrayTypeWrapper<T> operator[](size_t index) const;
 
@@ -281,6 +273,10 @@ namespace na {
 
 		std::vector<size_t> shape() const;
 
+		void alloc(std::initializer_list<size_t> list);
+
+		void alloc(const std::vector<size_t>& vec);
+
 		T dot(const ndArray<T>& other);
 
 		ndArray<T> copy();
@@ -288,6 +284,32 @@ namespace na {
 		void reshape(std::initializer_list<size_t> list);
 
 		const T* data() const { return item; }
+
+		#pragma region ndArray_operators
+		template <typename E>
+		ndArray<T>& operator+= (const ndArrayExpression<E>& other);
+
+		template <typename E>
+		ndArray<T>& operator-= (const ndArrayExpression<E>& other);
+
+		template <typename E>
+		ndArray<T>& operator*= (const ndArrayExpression<E>& other);
+
+		template <typename E>
+		ndArray<T>& operator/= (const ndArrayExpression<E>& other);
+
+		template <typename E, std::enable_if_t<std::is_arithmetic_v<E>, bool> = true>
+		ndArray<T>& operator+= (const E scalar);
+
+		template <typename E, std::enable_if_t<std::is_arithmetic_v<E>, bool> = true>
+		ndArray<T>& operator-= (const E scalar);
+
+		template <typename E, std::enable_if_t<std::is_arithmetic_v<E>, bool> = true>
+		ndArray<T>& operator*= (const E scalar);
+
+		template <typename E, std::enable_if_t<std::is_arithmetic_v<E>, bool> = true>
+		ndArray<T>& operator/= (const E scalar);
+		#pragma endregion
 	};
 
 
@@ -320,7 +342,6 @@ namespace na {
 			assert(dim != 0);
 			return ndArrayTypeWrapper(index, dim - 1, item, array);
 		}
-
 	};
 
 	/////////////////////////////////////////////////////////////////////		declaration		///////////////////////////////////////////////////////////////////
@@ -338,40 +359,6 @@ namespace na {
 	/////////////////////////////////////////////////////////////////////		definition		///////////////////////////////////////////////////////////////////
 
 	template <typename T>
-	ndArray<T>::ndArray(std::initializer_list<size_t> list)
-	{
-		assert(list.size() != 0);
-
-		_shape.reserve(list.size() + 1);
-		_shape.push_back(1);
-		for (auto iter = std::crbegin(list); iter != std::crend(list); ++iter) {
-			_shape.push_back(*iter * _shape.back());
-		}
-		
-		item = original = (T*)malloc(sizeof(T) * _shape.back() + sizeof(size_t));
-		assert(item != nullptr);
-		ref_cnt = (size_t*)(item + _shape.back());
-		*ref_cnt = 1;
-	}
-
-	template <typename T>
-	ndArray<T>::ndArray(const std::vector<size_t>& vec)
-	{
-		assert(vec.size() != 0);
-
-		_shape.reserve(vec.size() + 1);
-		_shape.push_back(1);
-		for (auto iter = vec.crbegin(); iter != vec.crend(); ++iter) {
-			_shape.push_back(*iter * _shape.back());
-		}
-
-		item = original = (T*)malloc(sizeof(T) * _shape.back() + sizeof(size_t));
-		assert(item != nullptr);
-		ref_cnt = (size_t*)(item + _shape.back());
-		*ref_cnt = 1;
-	}
-
-	template <typename T>
 	template <typename E>
 	ndArray<T>::ndArray(ndArrayExpression<E> const& expr) {
 		_shape = expr.raw_shape();
@@ -385,27 +372,6 @@ namespace na {
 			item[i] = expr.at(i);
 		}
 		item[0] = expr.at(0);
-	}
-
-	template <typename T>
-	void ndArray<T>::assign(std::initializer_list<T> list)
-	{
-		assert(list.size() == _shape.back());
-		size_t i = 0;
-		for (const auto& elem : list) {
-			item[i++] = elem;
-		}
-	}
-
-	template <typename T>
-	template <typename E>
-	void ndArray<T>::assign(const std::vector<E>& vec)
-	{
-		assert(vec.size() == _shape.back());
-		size_t i = 0;
-		for (const auto& elem : vec) {
-			item[i++] = elem;
-		}
 	}
 
 	template <typename T>
@@ -443,6 +409,48 @@ namespace na {
 		}
 
 		return shp;
+	}
+
+	template <typename T>
+	void ndArray<T>::alloc(std::initializer_list<size_t> list)
+	{
+		assert(list.size() != 0);
+		if (original != nullptr && --(*ref_cnt) == 0) {
+			free(original);
+		}
+
+		_shape.clear();
+		_shape.reserve(list.size() + 1);
+		_shape.push_back(1);
+		for (auto iter = std::crbegin(list); iter != std::crend(list); ++iter) {
+			_shape.push_back(*iter * _shape.back());
+		}
+
+		item = original = (T*)malloc(sizeof(T) * _shape.back() + sizeof(size_t));
+		assert(item != nullptr);
+		ref_cnt = (size_t*)(item + _shape.back());
+		*ref_cnt = 1;
+	}
+
+	template <typename T>
+	void ndArray<T>::alloc(const std::vector<size_t>& vec)
+	{
+		assert(vec.size() != 0);
+		if (original != nullptr && --(*ref_cnt) == 0) {
+			free(original);
+		}
+
+		_shape.clear();
+		_shape.reserve(vec.size() + 1);
+		_shape.push_back(1);
+		for (auto iter = vec.crbegin(); iter != vec.crend(); ++iter) {
+			_shape.push_back(*iter * _shape.back());
+		}
+
+		item = original = (T*)malloc(sizeof(T) * _shape.back() + sizeof(size_t));
+		assert(item != nullptr);
+		ref_cnt = (size_t*)(item + _shape.back());
+		*ref_cnt = 1;
 	}
 
 	template <typename T>
@@ -597,6 +605,106 @@ namespace na {
 		operator/(ndArrayExpression<E1> const& u, E2 const v) {
 		return ndArrayScalarDiv<E1, E2>(*static_cast<const E1*>(&u), v);
 	}
+
+	template <typename T>
+	template <typename E>
+	ndArray<T>& ndArray<T>::operator+= (const ndArrayExpression<E>& other)
+	{
+		assert(_shape == other.raw_shape());
+		for (size_t i = _shape.back() - 1; i != 0; --i) {
+			item[i] += other.at(i);
+		}
+		item[0] += other.at(0);
+
+		return *this;
+	}
+
+	template <typename T>
+	template <typename E>
+	ndArray<T>& ndArray<T>::operator-= (const ndArrayExpression<E>& other)
+	{
+		assert(_shape == other.raw_shape());
+		for (size_t i = _shape.back() - 1; i != 0; --i) {
+			item[i] -= other.at(i);
+		}
+		item[0] -= other.at(0);
+
+		return *this;
+	}
+
+	template <typename T>
+	template <typename E>
+	ndArray<T>& ndArray<T>::operator*= (const ndArrayExpression<E>& other)
+	{
+		assert(_shape == other.raw_shape());
+		for (size_t i = _shape.back() - 1; i != 0; --i) {
+			item[i] *= other.at(i);
+		}
+		item[0] *= other.at(0);
+
+		return *this;
+	}
+
+	template <typename T>
+	template <typename E>
+	ndArray<T>& ndArray<T>::operator/= (const ndArrayExpression<E>& other)
+	{
+		assert(_shape == other.raw_shape());
+		for (size_t i = _shape.back() - 1; i != 0; --i) {
+			item[i] /= other.at(i);
+		}
+		item[0] /= other.at(0);
+
+		return *this;
+	}
+
+	template <typename T>
+	template <typename E, std::enable_if_t<std::is_arithmetic_v<E>, bool>>
+	ndArray<T>& ndArray<T>::operator+= (const E scalar)
+	{
+		for (size_t i = _shape.back() - 1; i != 0; --i) {
+			item[i] += scalar;
+		}
+		item[0] += scalar;
+
+		return *this;
+	}
+
+	template <typename T>
+	template <typename E, std::enable_if_t<std::is_arithmetic_v<E>, bool>>
+	ndArray<T>& ndArray<T>::operator-= (const E scalar)
+	{
+		for (size_t i = _shape.back() - 1; i != 0; --i) {
+			item[i] -= scalar;
+		}
+		item[0] -= scalar;
+
+		return *this;
+	}
+
+	template <typename T>
+	template <typename E, std::enable_if_t<std::is_arithmetic_v<E>, bool>>
+	ndArray<T>& ndArray<T>::operator*= (const E scalar)
+	{
+		for (size_t i = _shape.back() - 1; i != 0; --i) {
+			item[i] *= scalar;
+		}
+		item[0] *= scalar;
+
+		return *this;
+	}
+
+	template <typename T>
+	template <typename E, std::enable_if_t<std::is_arithmetic_v<E>, bool>>
+	ndArray<T>& ndArray<T>::operator/= (const E scalar)
+	{
+		for (size_t i = _shape.back() - 1; i != 0; --i) {
+			item[i] /= scalar;
+		}
+		item[0] /= scalar;
+
+		return *this;
+	}
 	
 	#pragma endregion
 
@@ -625,7 +733,8 @@ namespace na {
 		std::vector<size_t> shp; shp.reserve(__supporter_dim_v<std::vector<E>>);
 		__supporter_calc_shape(vec, shp);
 	
-		ndArray<__supporter_vector_element_type_v<std::vector<E>>> res(shp);
+		ndArray<__supporter_vector_element_type_v<std::vector<E>>> res;
+		res.alloc(shp);
 
 		__support_array_func(vec, (__supporter_vector_element_type_v<std::vector<E>>*) res.data(), res.raw_shape());
 
