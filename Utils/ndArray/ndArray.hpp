@@ -302,11 +302,11 @@ namespace na {
 
 		size_t total_size() const { return _shape.back(); }
 
-		ndArray<T> sum(size_t dim = 1);
+		ndArray<T> sum(size_t dim = 1) const;
 
 		ndArray<T>& square();
 
-		ndArray<size_t> argmax(size_t dim = 1);
+		ndArray<size_t> argmax(size_t dim = 1) const;
 
 		#pragma region ndArray_operators
 		ndArray<T> operator[](size_t i) const;
@@ -628,7 +628,7 @@ namespace na {
 	}
 
 	template <typename T>
-	ndArray<T> ndArray<T>::sum(size_t dim)
+	ndArray<T> ndArray<T>::sum(size_t dim) const
 	{
 		size_t i, j, k;
 		size_t dim_size = _shape[dim] / _shape[dim - 1];
@@ -672,7 +672,7 @@ namespace na {
 	}
 
 	template<typename T>
-	ndArray<size_t> ndArray<T>::argmax(size_t dim)
+	ndArray<size_t> ndArray<T>::argmax(size_t dim) const
 	{
 		size_t i, j, k;
 		size_t dim_size = _shape[dim] / _shape[dim - 1];
