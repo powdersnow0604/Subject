@@ -256,7 +256,10 @@ namespace na {
 	public:
 
 		template <typename E>
-		class broadcast;
+		friend class broadcast;
+
+		template <typename E>
+		friend class ndArray;
 
 		static constexpr bool is_leaf = true;
 
@@ -269,15 +272,6 @@ namespace na {
 		ndArray() : item(nullptr), original(nullptr), ref_cnt(nullptr) {}
 
 		~ndArray() noexcept;
-
-		ndArray<T> operator[](size_t i) const;
-
-		ndArray<T> operator[](std::initializer_list<size_t> list) const;
-
-		ndArray<T>& operator=(const ndArray<T>& other);
-
-		template<typename E, std::enable_if_t<std::is_arithmetic_v<E>, bool> = true>
-		E& operator=(const E v) { assert(_shape.size() == 1); *item = v; return *item; }
 
 		T& at(size_t i) const { return item[i]; }
 
@@ -299,6 +293,9 @@ namespace na {
 		template <typename E>
 		ndArray<T>& copy(const ndArrayExpression<E>& other);
 
+		template <typename E>
+		ndArray<T>& shallow_copy(const ndArray<E>& other);
+
 		ndArray<T>& reshape(std::initializer_list<size_t> list);
 
 		const T* data() const { return item; }
@@ -309,7 +306,23 @@ namespace na {
 
 		ndArray<T>& square();
 
+		ndArray<size_t> argmax(size_t dim = 1);
+
 		#pragma region ndArray_operators
+		ndArray<T> operator[](size_t i) const;
+
+		ndArray<T> operator[](std::initializer_list<size_t> list) const;
+
+		ndArray<T>& operator=(const ndArray<T>& other);
+
+		template <typename E>
+		ndArray<T>& operator=(const ndArrayExpression<E>& other);
+
+		template<typename E, std::enable_if_t<std::is_arithmetic_v<E>, bool> = true>
+		T& operator=(const E v) { assert(_shape.size() == 1); *item = v; return *item; }
+
+		operator T& () { assert(_shape.size() == 1); return *item; }
+
 		template <typename E>
 		ndArray<T>& operator+= (const ndArrayExpression<E>& other);
 
@@ -383,9 +396,9 @@ namespace na {
 		*ref_cnt = 1;
 
 		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] = expr.at(i);
+			item[i] = static_cast<T>(expr.at(i));
 		}
-		item[0] = expr.at(0);
+		item[0] = static_cast<T>(expr.at(0));
 	}
 
 	template <typename T>
@@ -423,13 +436,25 @@ namespace na {
 	template <typename T>
 	ndArray<T>& ndArray<T>::operator=(const ndArray<T>& other)
 	{
-		if (original != nullptr && --(*ref_cnt) == 0) {
-			free(original);
-		}
+		assert(_shape == other._shape);
 
-		item = other.item;
-		original = other.original;
-		_shape = other._shape;
+		_memcpy(item, other.item, _shape.back());
+
+		return *this;
+	}
+
+	template <typename T>
+	template <typename E>
+	ndArray<T>& ndArray<T>::operator=(const ndArrayExpression<E>& other)
+	{
+		assert(_shape == other.raw_shape());
+
+		for (size_t i = _shape.back() - 1; i != 0; --i) {
+			item[i] = other.at(i);
+		}
+		item[0] = other.at(0);
+
+		return *this;
 	}
 
 	template <typename T>
@@ -522,7 +547,7 @@ namespace na {
 	template <typename E>
 	ndArray<T>& ndArray<T>::copy(const ndArray<E>& other)
 	{
-		assert(_shape = other._shape);
+		assert(_shape == other._shape);
 
 		_memcpy(item, other.item, _shape.back());
 
@@ -544,8 +569,24 @@ namespace na {
 	}
 
 	template <typename T>
+	template <typename E>
+	ndArray<T>& ndArray<T>::shallow_copy(const ndArray<E>& other)
+	{
+		if (original != nullptr && --(*ref_cnt) == 0) {
+			free(original);
+		}
+
+		item = other.item;
+		original = other.original;
+		_shape = other._shape;
+
+		return *this;
+	}
+
+	template <typename T>
 	void ndArray<T>::_memcpy(void* dst, void* src, size_t size)
 	{
+		size *= sizeof(T);
 		size_t i = 0;
 		for (; i < size >> 3; ++i) {
 			(static_cast<size_t*>(dst))[i] = (static_cast<size_t*>(src))[i];
@@ -629,6 +670,49 @@ namespace na {
 		
 		return *this;
 	}
+
+	template<typename T>
+	ndArray<size_t> ndArray<T>::argmax(size_t dim)
+	{
+		size_t i, j, k;
+		size_t dim_size = _shape[dim] / _shape[dim - 1];
+		size_t curr_i;
+
+		ndArray<size_t> res;
+		std::vector<T> temp(_shape[dim - 1]);
+		res._shape = _shape;
+
+		res._shape.erase(res._shape.begin() + dim);
+		for (i = dim; i < res._shape.size(); ++i) {
+			res._shape[i] /= dim_size;
+		}
+
+		res.item = res.original = (size_t*)calloc(res._shape.back() + 1, sizeof(size_t));
+		assert(res.original != nullptr);
+
+		res.ref_cnt = (res.original + res._shape.back());
+		++(*(res.ref_cnt));
+
+		for (i = 0; i < res._shape.back(); i += _shape[dim - 1]) {
+			curr_i = i * dim_size;
+
+			for (k = 0; k < _shape[dim - 1]; ++k) {
+				temp[k] = item[curr_i + k];
+			}
+
+			for (j = _shape[dim - 1]; j < _shape[dim]; j += _shape[dim - 1]) {
+				for (k = 0; k < _shape[dim - 1]; ++k) {
+					if (temp[k] < item[curr_i + j + k]) {
+						res.item[i + k] = j / _shape[dim - 1];
+						temp[k] = item[curr_i + j + k];
+					}
+				}
+			}
+		}
+
+		return res;
+	}
+
 
 
 	#pragma region support_arithmetic_operator
@@ -865,6 +949,8 @@ namespace na {
 	std::ostream& operator << (std::ostream& out, const ndArray<T>& arr)
 	{
 		const std::vector<size_t>& shp = arr.shape();
+		if (shp.size() == 0) return out << arr.at(0);
+
 		__support_ndArray_print((T*)arr.data(), shp, arr.raw_shape(), shp.size(), shp.size());
 
 		return out;
