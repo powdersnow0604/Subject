@@ -308,6 +308,8 @@ namespace na {
 
 		ndArray<size_t> argmax(size_t dim = 1) const;
 
+		ndArray<T>& shuffle(size_t dim = 1);
+
 		#pragma region ndArray_operators
 		ndArray<T> operator[](size_t i) const;
 
@@ -382,6 +384,9 @@ namespace na {
 
 	template<typename T>
 	void __support_ndArray_print(T* item, const std::vector<size_t>& shp, const std::vector<size_t>& raw_shp, size_t dim, size_t highest_dim);
+
+	template<typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool> = true>
+	ndArray<T> range(T start, const T end, const T interval = 1);
 
 	/////////////////////////////////////////////////////////////////////		definition		///////////////////////////////////////////////////////////////////
 
@@ -713,6 +718,33 @@ namespace na {
 		return res;
 	}
 
+	template <typename T>
+	ndArray<T>& ndArray<T>::shuffle(size_t dim)
+	{
+		size_t i, j;
+		size_t dim_size = _shape[dim] / _shape[dim - 1];
+		std::mt19937 gen{ std::random_device()() };
+		std::uniform_int_distribution<size_t> dist;
+		std::uniform_int<size_t>::param_type params;
+		size_t randnum;
+
+		T* temp = (T*)malloc(sizeof(T) * _shape[dim-1]);
+
+		for (i = 0; i < _shape.back(); i += _shape[dim]) {
+			for (j = dim_size - 1; j != 0; --j) {
+				params._Init(0, j);
+				randnum = dist(gen, params);
+				_memcpy(temp, item + i + randnum * _shape[dim - 1], _shape[dim - 1]);
+				_memcpy(item + i + randnum * _shape[dim - 1], item + i + j * _shape[dim - 1], _shape[dim - 1]);
+				_memcpy(item + i + j * _shape[dim - 1], temp, _shape[dim - 1]);
+			}
+		}
+
+		free(temp);
+
+		return *this;
+	}
+
 
 
 	#pragma region support_arithmetic_operator
@@ -954,6 +986,35 @@ namespace na {
 		__support_ndArray_print((T*)arr.data(), shp, arr.raw_shape(), shp.size(), shp.size());
 
 		return out;
+	}
+
+	template<typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool>>
+	ndArray<T> range(T start, const T end, const T interval)
+	{
+		if (interval == 0 || (interval > 0 && end < start) || (interval < 0 && end > start))
+			return {};
+
+		size_t size, i = 0;
+		double temp = ((double)end - start) / (double)interval;
+		if (temp - (size_t)temp) ++temp;
+		size = (size_t)temp;
+
+		na::ndArray<T> res;
+		res.alloc({ size });
+		T* data = (T*)res.data();
+
+		if(start < end) {
+			for (; start < end; start += interval) {
+				data[i++] = start;
+			}
+		}
+		else if (start > end) {
+			for (; start > end; start += interval) {
+				data[i++] = start;
+			}
+		}
+
+		return res;
 	}
 
 

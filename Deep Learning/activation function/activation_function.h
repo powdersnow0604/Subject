@@ -23,6 +23,11 @@ namespace DeepLearning {
 			void diff(na::ndArray<float>& dst, const na::ndArray<float>& src);
 		};
 
+		class Relu : public __basic_activation_func {
+			void forward(na::ndArray<float>& dst, const na::ndArray<float>& src);
+			void diff(na::ndArray<float>& dst, const na::ndArray<float>& src);
+		};
+
 	}
 };
 
