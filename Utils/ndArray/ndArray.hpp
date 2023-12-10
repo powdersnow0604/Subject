@@ -308,7 +308,7 @@ namespace na {
 
 		ndArray<size_t> argmax(size_t dim = 1) const;
 
-		ndArray<T>& shuffle(size_t dim = 1);
+		ndArray<T>& shuffle(size_t dim = 1, bool synchronize = false);
 
 		#pragma region ndArray_operators
 		ndArray<T> operator[](size_t i) const;
@@ -455,9 +455,9 @@ namespace na {
 		assert(_shape == other.raw_shape());
 
 		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] = other.at(i);
+			item[i] = static_cast<T>(other.at(i));
 		}
-		item[0] = other.at(0);
+		item[0] = static_cast<T>(other.at(0));
 
 		return *this;
 	}
@@ -554,7 +554,10 @@ namespace na {
 	{
 		assert(_shape == other._shape);
 
-		_memcpy(item, other.item, _shape.back());
+		for (size_t i = _shape.back() - 1; i != 0; --i) {
+			item[i] = static_cast<T>(other.at(i));
+		}
+		item[0] = static_cast<T>(other.at(0));
 
 		return *this;
 	}
@@ -566,9 +569,9 @@ namespace na {
 		assert(_shape == other.raw_shape());
 
 		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] = other.at(i);
+			item[i] = static_cast<T>(other.at(i));
 		}
-		item[0] = other.at(0);
+		item[0] = static_cast<T>(other.at(0));
 
 		return *this;
 	}
@@ -616,17 +619,19 @@ namespace na {
 	template <typename T>
 	ndArray<T>& ndArray<T>::reshape(std::initializer_list<size_t> list)
 	{
-		size_t sum = 0;
+		size_t sum = 1;
 		for (auto& elem : list) {
-			sum += elem;
+			sum *= elem;
 		}
 
 		assert(_shape.back() == sum);
 
-		_shape.resize(list.size());
-		size_t i = 0;
+		_shape.resize(list.size()+1);
+		_shape[0] = 1;
+		size_t i = 1;
 		for (auto& elem : list) {
-			_shape[i++] = elem;
+			_shape[i] = _shape[i-1] * elem;
+			++i;
 		}
 
 		return *this;
@@ -719,25 +724,52 @@ namespace na {
 	}
 
 	template <typename T>
-	ndArray<T>& ndArray<T>::shuffle(size_t dim)
+	ndArray<T>& ndArray<T>::shuffle(size_t dim, bool synchronize)
 	{
-		size_t i, j;
+		size_t i, j, temp_t;
 		size_t dim_size = _shape[dim] / _shape[dim - 1];
 		std::mt19937 gen{ std::random_device()() };
 		std::uniform_int_distribution<size_t> dist;
 		std::uniform_int<size_t>::param_type params;
 		size_t randnum;
 
-		T* temp = (T*)malloc(sizeof(T) * _shape[dim-1]);
+		T* temp = (T*)malloc(sizeof(T) * _shape[dim]);
+		std::vector<size_t> randind; randind.reserve(dim_size);
 
-		for (i = 0; i < _shape.back(); i += _shape[dim]) {
+		for (i = dim_size - 1; i != 0; --i) {
+			randind.push_back(i);
+		}
+		randind.push_back(0);
+
+		if (synchronize) {
 			for (j = dim_size - 1; j != 0; --j) {
 				params._Init(0, j);
 				randnum = dist(gen, params);
-				_memcpy(temp, item + i + randnum * _shape[dim - 1], _shape[dim - 1]);
-				_memcpy(item + i + randnum * _shape[dim - 1], item + i + j * _shape[dim - 1], _shape[dim - 1]);
-				_memcpy(item + i + j * _shape[dim - 1], temp, _shape[dim - 1]);
+				temp_t = randind[j];
+				randind[j] = randind[randnum];
+				randind[randnum] = temp_t;
 			}
+		}
+
+
+		for (i = 0; i < _shape.back(); i += _shape[dim]) {
+
+			if (!synchronize) {
+				for (j = dim_size - 1; j != 0; --j) {
+					params._Init(0, j);
+					randnum = dist(gen, params);
+					temp_t = randind[j];
+					randind[j] = randind[randnum];
+					randind[randnum] = temp_t;
+				}
+			}
+
+			for (j = dim_size - 1; ; --j) {
+				_memcpy(temp + j * _shape[dim - 1], item + i + randind[j] * _shape[dim - 1], _shape[dim - 1]);
+				if (j == 0) break;
+			}
+			_memcpy(item + i, temp, _shape[dim]);
+
 		}
 
 		free(temp);
@@ -803,9 +835,9 @@ namespace na {
 	{
 		assert(_shape == other.raw_shape());
 		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] += other.at(i);
+			item[i] += static_cast<T>(other.at(i));
 		}
-		item[0] += other.at(0);
+		item[0] += static_cast<T>(other.at(0));
 
 		return *this;
 	}
@@ -816,9 +848,9 @@ namespace na {
 	{
 		assert(_shape == other.raw_shape());
 		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] -= other.at(i);
+			item[i] -= static_cast<T>(other.at(i));
 		}
-		item[0] -= other.at(0);
+		item[0] -= static_cast<T>(other.at(0));
 
 		return *this;
 	}
@@ -829,9 +861,9 @@ namespace na {
 	{
 		assert(_shape == other.raw_shape());
 		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] *= other.at(i);
+			item[i] *= static_cast<T>(other.at(i));
 		}
-		item[0] *= other.at(0);
+		item[0] *= static_cast<T>(other.at(0));
 
 		return *this;
 	}
@@ -842,9 +874,9 @@ namespace na {
 	{
 		assert(_shape == other.raw_shape());
 		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] /= other.at(i);
+			item[i] /= static_cast<T>(other.at(i));
 		}
-		item[0] /= other.at(0);
+		item[0] /= static_cast<T>(other.at(0));
 
 		return *this;
 	}
@@ -854,9 +886,9 @@ namespace na {
 	ndArray<T>& ndArray<T>::operator+= (const E scalar)
 	{
 		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] += scalar;
+			item[i] += static_cast<T>(scalar);
 		}
-		item[0] += scalar;
+		item[0] += static_cast<T>(scalar);
 
 		return *this;
 	}
@@ -866,9 +898,9 @@ namespace na {
 	ndArray<T>& ndArray<T>::operator-= (const E scalar)
 	{
 		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] -= scalar;
+			item[i] -= static_cast<T>(scalar);
 		}
-		item[0] -= scalar;
+		item[0] -= static_cast<T>(scalar);
 
 		return *this;
 	}
@@ -878,9 +910,9 @@ namespace na {
 	ndArray<T>& ndArray<T>::operator*= (const E scalar)
 	{
 		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] *= scalar;
+			item[i] *= static_cast<T>(scalar);
 		}
-		item[0] *= scalar;
+		item[0] *= static_cast<T>(scalar);
 
 		return *this;
 	}
@@ -890,9 +922,9 @@ namespace na {
 	ndArray<T>& ndArray<T>::operator/= (const E scalar)
 	{
 		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] /= scalar;
+			item[i] /= static_cast<T>(scalar);
 		}
-		item[0] /= scalar;
+		item[0] /= static_cast<T>(scalar);
 
 		return *this;
 	}
