@@ -6,7 +6,7 @@ namespace na {
 	std::allocator<size_t> __ndArray_shape_allocator;
 	const size_t __static_ptr_size = 5;
 
-	////////////////////////////////////////////// member function //////////////////////////////////////////////////////////////
+	////////////////////////////////////////////// shape member function //////////////////////////////////////////////////////////////
 
 	__ndArray_shape::__ndArray_shape(const std::vector<size_t>& shp): _size(shp.size() + 1), capacity(0), static_ptr{1,0,0,0,0}
 	{
@@ -92,6 +92,20 @@ namespace na {
 			for (i = arg; i < other._size - 1; ++i) {
 				ptr[i] = other.ptr[i + 1] / target_dim_size;
 			}
+		}
+	}
+
+	__ndArray_shape::__ndArray_shape(const __ndArray_shape_view& shp) :_size(shp.size()), capacity(0), static_ptr{ 1,0,0,0,0 }
+	{
+		if (_size <= __static_ptr_size) ptr = static_ptr;
+		else {
+			capacity = _size;
+			ptr = __ndArray_shape_allocator.allocate(capacity);
+			ptr[0] = 1;
+		}
+
+		for (size_t i = _size - 1; i != 0; --i) {
+			ptr[i] = shp[i];
 		}
 	}
 
@@ -335,6 +349,21 @@ namespace na {
 		}
 	}
 
+	///////////////////////////////////////////////////////  view member function ///////////////////////////////////////////////////////
+
+	void __ndArray_shape_view::init(const __ndArray_shape& shp)
+	{
+		ptr = shp.ptr;
+		_size = shp._size;
+	}
+
+	__ndArray_shape_view& __ndArray_shape_view::operator=(const __ndArray_shape_view& other)
+	{
+		ptr = other.ptr;
+		_size = other._size;
+		return *this;
+	}
+
 	
 	///////////////////////////////////////////////////////  functions ///////////////////////////////////////////////////////
 	std::ostream& operator << (std::ostream& out, const __ndArray_shape& shp)
@@ -346,5 +375,25 @@ namespace na {
 		out << shp[shp.size() - 1] << "]";
 
 		return out;
+	}
+
+	bool operator==(const __ndArray_shape& arg1, const __ndArray_shape_view& arg2)
+	{
+		if (arg1.size() != arg2.size()) return false;
+		for (size_t i = arg1.size() - 1; i != 0; --i) {
+			if (arg1[i] != arg2[i]) return false;
+		}
+
+		return true;
+	}
+
+	bool operator==(const __ndArray_shape_view& arg1, const __ndArray_shape& arg2)
+	{
+		if (arg1.size() != arg2.size()) return false;
+		for (size_t i = arg1.size() - 1; i != 0; --i) {
+			if (arg1[i] != arg2[i]) return false;
+		}
+
+		return true;
 	}
 }

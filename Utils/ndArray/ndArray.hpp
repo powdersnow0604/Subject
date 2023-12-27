@@ -4,13 +4,20 @@
 
 
 #include <memory>
-#include <stdlib.h>
 #include <iostream>
 #include <cassert>
 #include <vector>
 #include <random>
 #include <utility>
+
+/////////////////////////////////////////////////////////////////////		shape		///////////////////////////////////////////////////////////////////
+
 #include "ndArray_shape.h"
+
+
+/////////////////////////////////////////////////////////////////////		std::vector supporters		///////////////////////////////////////////////////////////////////
+
+#include "ndArray_supporters_for_stdvector.hpp"
 
 
 namespace na {
@@ -25,7 +32,7 @@ namespace na {
 		auto operator[](size_t i) const { return static_cast<E const&>(*this)[i]; }
 		auto at(size_t i) const { return static_cast<E const&>(*this).at(i); }
 		//std::vector<size_t> shape() const { return static_cast<E const&>(*this).shape(); }
-		const __ndArray_shape& raw_shape() const { return static_cast<E const&>(*this).raw_shape(); }
+		const auto& raw_shape() const { return static_cast<E const&>(*this).raw_shape(); }
 	};
 
 
@@ -40,205 +47,7 @@ namespace na {
 		operator E() { return u; }
 	};
 
-
-
-	#pragma region support_arithmetic_operation_class
-	template <typename E1, typename E2>
-	class ndArraySum : public ndArrayExpression<ndArraySum<E1, E2> > {
-		typename std::conditional_t<E1::is_leaf, const E1, const E1&> _u;
-		typename std::conditional_t<E2::is_leaf, const E2, const E2&> _v;
-
-	public:
-		static constexpr bool is_leaf = false;
-		ndArraySum(E1 const& u, E2 const& v) : _u(u), _v(v) {
-			assert(u.raw_shape() == v.raw_shape());
-		}
-		decltype(auto) operator[](size_t i) const { return _u[i] + _v[i]; }
-		decltype(auto) at(size_t i) const { return _u.at(i) + _v.at(i); }
-		const __ndArray_shape& raw_shape()               const { return _u.raw_shape(); }
-	};
-
-	template <typename E1, typename E2>
-	class ndArrayMul : public ndArrayExpression<ndArrayMul<E1, E2> > {
-		typename std::conditional_t<E1::is_leaf, const E1, const E1&> _u;
-		typename std::conditional_t<E2::is_leaf, const E2, const E2&> _v;
-
-	public:
-		static constexpr bool is_leaf = false;
-		ndArrayMul(E1 const& u, E2 const& v) : _u(u), _v(v) {
-			assert(u.raw_shape() == v.raw_shape());
-		}
-		decltype(auto) operator[](size_t i) const { return _u[i] * _v[i]; }
-		decltype(auto) at(size_t i) const { return _u.at(i) * _v.at(i); }
-		const __ndArray_shape& raw_shape()               const { return _u.raw_shape(); }
-	};
-
-	template <typename E1, typename E2>
-	class ndArraySub : public ndArrayExpression<ndArraySub<E1, E2> > {
-		typename std::conditional_t<E1::is_leaf, const E1, const E1&> _u;
-		typename std::conditional_t<E2::is_leaf, const E2, const E2&> _v;
-
-	public:
-		static constexpr bool is_leaf = false;
-		ndArraySub(E1 const& u, E2 const& v) : _u(u), _v(v) {
-			assert(u.raw_shape() == v.raw_shape());
-		}
-		decltype(auto) operator[](size_t i) const { return _u[i] - _v[i]; }
-		decltype(auto) at(size_t i) const { return _u.at(i) - _v.at(i); }
-		const __ndArray_shape& raw_shape()               const { return _u.raw_shape(); }
-	};
-
-	template <typename E1, typename E2>
-	class ndArrayDiv : public ndArrayExpression<ndArrayDiv<E1, E2> > {
-		typename std::conditional_t<E1::is_leaf, const E1, const E1&> _u;
-		typename std::conditional_t<E2::is_leaf, const E2, const E2&> _v;
-
-	public:
-		static constexpr bool is_leaf = false;
-		ndArrayDiv(E1 const& u, E2 const& v) : _u(u), _v(v) {
-			assert(u.raw_shape() == v.raw_shape());
-		}
-		decltype(auto) operator[](size_t i) const { return _u[i] / _v[i]; }
-		decltype(auto) at(size_t i) const { return _u.at(i) / _v.at(i); }
-		const __ndArray_shape& raw_shape()               const { return _u.raw_shape(); }
-	};
-
-
-
 	
-	template <typename E1, typename E2, std::enable_if_t<std::is_arithmetic_v<E2>, bool> = true>
-	class ndArrayScalarSum : public ndArrayExpression<ndArrayScalarSum<E1, E2> > {
-		typename std::conditional_t<E1::is_leaf, const E1, const E1&> _u;
-		const E2 _v;
-
-	public:
-		static constexpr bool is_leaf = false;
-		ndArrayScalarSum(E1 const& u, E2 const v) : _u(u), _v(v) {}
-		decltype(auto) operator[](size_t i) const { return _u[i] + _v; }
-		decltype(auto) at(size_t i) const { return _u.at(i) + _v; }
-		const __ndArray_shape& raw_shape()               const { return _u.raw_shape(); }
-	};
-	
-	template <typename E1, typename E2, std::enable_if_t<std::is_arithmetic_v<E2>, bool> = true>
-	class ndArrayScalarMul : public ndArrayExpression<ndArrayScalarMul<E1, E2> > {
-		typename std::conditional_t<E1::is_leaf, const E1, const E1&> _u;
-		const E2 _v;
-
-	public:
-		static constexpr bool is_leaf = false;
-		ndArrayScalarMul(E1 const& u, E2 const v) : _u(u), _v(v) {}
-		decltype(auto) operator[](size_t i) const { return _u[i] * _v; }
-		decltype(auto) at(size_t i) const { return _u.at(i) * _v; }
-		const __ndArray_shape& raw_shape()               const { return _u.raw_shape(); }
-	};
-
-	template <typename E1, typename E2, std::enable_if_t<std::is_arithmetic_v<E2>, bool> = true>
-	class ndArrayScalarSub : public ndArrayExpression<ndArrayScalarSub<E1, E2> > {
-		typename std::conditional_t<E1::is_leaf, const E1, const E1&> _u;
-		const E2 _v;
-
-	public:
-		static constexpr bool is_leaf = false;
-		ndArrayScalarSub(E1 const& u, E2 const v) : _u(u), _v(v) {}
-		decltype(auto) operator[](size_t i) const { return _u[i] - _v; }
-		decltype(auto) at(size_t i) const { return _u.at(i) - _v; }
-		const __ndArray_shape& raw_shape()               const { return _u.raw_shape(); }
-	};
-	
-	template <typename E1, typename E2, std::enable_if_t<std::is_arithmetic_v<E2>, bool> = true>
-	class ndArrayScalarDiv : public ndArrayExpression<ndArrayScalarDiv<E1, E2> > {
-		typename std::conditional_t<E1::is_leaf, const E1, const E1&> _u;
-		const E2 _v;
-
-	public:
-		static constexpr bool is_leaf = false;
-		ndArrayScalarDiv(E1 const& u, E2 const v) : _u(u), _v(v) {}
-		decltype(auto) operator[](size_t i) const { return _u[i] / _v; }
-		decltype(auto) at(size_t i) const { return _u.at(i) / _v; }
-		const __ndArray_shape& raw_shape()               const { return _u.raw_shape(); }
-	};
-	
-	#pragma endregion 	
-
-
-	
-	#pragma region supporters_for_vector
-	template<typename >
-	struct __supporter_is_vector : std::false_type {};
-
-	template<typename T>
-	struct __supporter_is_vector<std::vector<T>> : std::true_type {};
-
-	template< class T >
-	inline constexpr bool __supporter_is_vector_v = __supporter_is_vector<T>::value;
-
-
-	template<typename T>
-	struct __supporter_vector_element_type {
-		using value_type = T;
-	};
-
-	template<typename T>
-	struct __supporter_vector_element_type <std::vector<T>> {
-		using value_type = typename __supporter_vector_element_type<T>::value_type;
-	};
-
-	template<typename T>
-	using __supporter_vector_element_type_v = typename __supporter_vector_element_type<T>::value_type;
-
-
-	template<typename T>
-	struct __supporter_dim {
-		static constexpr size_t value = 0;
-	};
-
-	template<typename T>
-	struct __supporter_dim<std::vector<T>> {
-		static constexpr size_t value = __supporter_dim<T>::value + 1;
-	};
-
-	template<typename T>
-	constexpr size_t __supporter_dim_v = __supporter_dim<T>::value;
-
-
-	template <typename T>
-	bool __supporter_is_rect_vector(const std::vector<T>& vec) {
-
-		if constexpr (__supporter_dim<std::vector<T>>::value == 1) {
-			return true;
-		}
-		else if constexpr (__supporter_dim<std::vector<T>>::value == 2) {
-			const size_t size = vec[0].size();
-			for (size_t i = 1; i < vec.size(); ++i) {
-				if (size != vec[i].size()) return false;
-			}
-			return true;
-		}
-		else {
-			const size_t size = vec[0].size();
-			for (size_t i = 1; i < vec.size(); ++i) {
-				if (!__supporter_is_rect_vector(vec[i])) return false;
-				if (size != vec[i].size()) return false;
-			}
-			return true;
-		}
-	}
-
-
-	template <typename T>
-	void __supporter_calc_shape(const std::vector<T>& vec, std::vector<size_t>& shp) {
-		if constexpr (__supporter_dim<std::vector<T>>::value == 1) {
-			shp.push_back(vec.size());
-			return;
-		}
-		else {
-			shp.push_back(vec.size());
-			__supporter_calc_shape(vec[0], shp);
-		}
-	}
-	#pragma endregion
-
-
 
 	/////////////////////////////////////////////////////////////////////		ndArray		///////////////////////////////////////////////////////////////////
 	template <typename T>
@@ -276,13 +85,23 @@ namespace na {
 
 		T& at(size_t i) const { return item[i]; }
 
+		T& at_s(size_t i) const { assert(i < _shape.back()); return item[i]; }
+
+		ndArray<T> access(size_t i);
+
+		ndArray<T> access(std::initializer_list<size_t> list);
+
 		const __ndArray_shape& raw_shape() const { return _shape; }
 
 		std::vector<size_t> shape() const;
 
+		size_t dim() const { return _shape.size() - 1; }
+
 		void alloc(std::initializer_list<size_t> list);
 
 		void alloc(const std::vector<size_t>& vec);
+
+		void alloc(const __ndArray_shape& vec);
 
 		T dot(const ndArray<T>& other);
 
@@ -302,6 +121,8 @@ namespace na {
 		const T* data() const { return item; }
 
 		size_t total_size() const { return _shape.back(); }
+
+		size_t dim_size(size_t i) const { assert(i < _shape.size()); return _shape[i] / _shape[i - 1]; }
 
 		ndArray<T> sum(size_t dim = 1) const;
 
@@ -338,58 +159,22 @@ namespace na {
 		template <typename E>
 		ndArray<T>& operator/= (const ndArrayExpression<E>& other);
 
-		template <typename E, std::enable_if_t<std::is_arithmetic_v<E>, bool> = true>
+		template <typename E>
 		ndArray<T>& operator+= (const E scalar);
 
-		template <typename E, std::enable_if_t<std::is_arithmetic_v<E>, bool> = true>
+		template <typename E>
 		ndArray<T>& operator-= (const E scalar);
 
-		template <typename E, std::enable_if_t<std::is_arithmetic_v<E>, bool> = true>
+		template <typename E>
 		ndArray<T>& operator*= (const E scalar);
 
-		template <typename E, std::enable_if_t<std::is_arithmetic_v<E>, bool> = true>
+		template <typename E>
 		ndArray<T>& operator/= (const E scalar);
 
 		#pragma endregion
 	};
 
-	/*
-	template <typename T>
-	class broadcast {
-		static constexpr bool is_leaf = false;
-
-		const ndArray<T>* ndarray;
-		size_t dim;
-		size_t iter;
-		std::vector<size_t> _shape;
-
-		broadcast(const ndArray<T>* __ndarray, const std::vector<size_t>& other) : ndarray(__ndarray), dim(0) {
-			
-		}
-
-		T at(size_t i) const;
-
-		const std::vector<size_t>& raw_shape() const { return _shape; }
-	};
-	*/
-
-
-	/////////////////////////////////////////////////////////////////////		declaration		///////////////////////////////////////////////////////////////////
-
-
-	template <typename T>
-	void __support_array_func(const std::vector<T>& vec, __supporter_vector_element_type_v<std::vector<T>>* item, const __ndArray_shape& shp);
-
-	template<typename E>
-	ndArray<__supporter_vector_element_type_v<std::vector<E>>> array(const std::vector<E>& vec);
-
-	template<typename T>
-	void __support_ndArray_print(T* item, const std::vector<size_t>& shp, const __ndArray_shape& raw_shp, size_t dim, size_t highest_dim);
-
-	template<typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool> = true>
-	ndArray<T> range(T start, const T end, const T interval = 1);
-
-	/////////////////////////////////////////////////////////////////////		definition		///////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////		member fuction		///////////////////////////////////////////////////////////////////
 
 	template <typename T>
 	template <typename E>
@@ -434,6 +219,33 @@ namespace na {
 			offset += *list_i * _shape[shp_i];
 		}
 		
+		return ndArray<T>(item + offset, original, ref_cnt, _shape, list.size());
+	}
+
+	template <typename T>
+	ndArray<T> ndArray<T>::access(size_t i)
+	{
+		assert(_shape.size() != 1);
+		assert(i < _shape.back());
+		return ndArray<T>(item + i * _shape[_shape.size() - 2], original, ref_cnt, _shape);
+	}
+
+	template <typename T>
+	ndArray<T> ndArray<T>::access(std::initializer_list<size_t> list)
+	{
+		assert(list.size() != 0);
+		assert(_shape.size() > list.size());
+
+		auto list_i = list.begin();
+		size_t shp_i = _shape.size() - 2;
+		assert(*list_i < _shape[shp_i] / _shape[shp_i - 1]);
+		size_t offset = *list_i++ * _shape[shp_i--];
+
+		for (; list_i != list.end(); ++list_i, --shp_i) {
+			assert(*list_i < _shape[shp_i] / _shape[shp_i - 1]);
+			offset += *list_i * _shape[shp_i];
+		}
+
 		return ndArray<T>(item + offset, original, ref_cnt, _shape, list.size());
 	}
 
@@ -497,6 +309,21 @@ namespace na {
 		}
 
 		_shape.init(vec);
+
+		item = original = (T*)malloc(sizeof(T) * _shape.back() + sizeof(size_t));
+		assert(item != nullptr);
+		ref_cnt = (size_t*)(item + _shape.back());
+		*ref_cnt = 1;
+	}
+
+	template <typename T>
+	void ndArray<T>::alloc(const __ndArray_shape& shp)
+	{
+		if (original != nullptr && --(*ref_cnt) == 0) {
+			free(original);
+		}
+
+		_shape = shp;
 
 		item = original = (T*)malloc(sizeof(T) * _shape.back() + sizeof(size_t));
 		assert(item != nullptr);
@@ -741,163 +568,44 @@ namespace na {
 	}
 
 
+	/////////////////////////////////////////////////////////////////////		declaration		///////////////////////////////////////////////////////////////////
 
-	#pragma region support_arithmetic_operator
-	template <typename E1, typename E2>
-	ndArraySum<E1, E2>
-		operator+(ndArrayExpression<E1> const& u, ndArrayExpression<E2> const& v) {
-		return ndArraySum<E1, E2>(*static_cast<const E1*>(&u), *static_cast<const E2*>(&v));
-	}
-
-	template <typename E1, typename E2>
-	ndArrayMul<E1, E2>
-		operator*(ndArrayExpression<E1> const& u, ndArrayExpression<E2> const& v) {
-		return ndArrayMul<E1, E2>(*static_cast<const E1*>(&u), *static_cast<const E2*>(&v));
-	}
-
-	template <typename E1, typename E2>
-	ndArraySub<E1, E2>
-		operator-(ndArrayExpression<E1> const& u, ndArrayExpression<E2> const& v) {
-		return ndArraySub<E1, E2>(*static_cast<const E1*>(&u), *static_cast<const E2*>(&v));
-	}
-
-	template <typename E1, typename E2>
-	ndArrayDiv<E1, E2>
-		operator/(ndArrayExpression<E1> const& u, ndArrayExpression<E2> const& v) {
-		return ndArrayDiv<E1, E2>(*static_cast<const E1*>(&u), *static_cast<const E2*>(&v));
-	}
-	
-	
-	template <typename E1, typename E2, std::enable_if_t<std::is_arithmetic_v<E2>, bool> = true>
-	ndArrayScalarSum<E1, E2>
-		operator+(ndArrayExpression<E1> const& u, E2 const v) {
-		return ndArrayScalarSum<E1, E2>(*static_cast<const E1*>(&u), v);
-	}
-	
-	template <typename E1, typename E2, std::enable_if_t<std::is_arithmetic_v<E2>, bool> = true>
-	ndArrayScalarSub<E1, E2>
-		operator-(ndArrayExpression<E1> const& u, E2 const v) {
-		return ndArrayScalarSub<E1, E2>(*static_cast<const E1*>(&u), v);
-	}
-	
-	template <typename E1, typename E2, std::enable_if_t<std::is_arithmetic_v<E2>, bool> = true>
-	ndArrayScalarMul<E1, E2>
-		operator*(ndArrayExpression<E1> const& u, E2 const v) {
-		return ndArrayScalarMul<E1, E2>(*static_cast<const E1*>(&u), v);
-	}
-	
-	template <typename E1, typename E2, std::enable_if_t<std::is_arithmetic_v<E2>, bool> = true>
-	ndArrayScalarDiv<E1, E2>
-		operator/(ndArrayExpression<E1> const& u, E2 const v) {
-		return ndArrayScalarDiv<E1, E2>(*static_cast<const E1*>(&u), v);
-	}
 
 	template <typename T>
-	template <typename E>
-	ndArray<T>& ndArray<T>::operator+= (const ndArrayExpression<E>& other)
-	{
-		assert(_shape == other.raw_shape());
-		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] = static_cast<T>(item[i] + other.at(i));
-		}
-		item[0] = static_cast<T>(item[0] + other.at(0));
+	void __support_array_func(const std::vector<T>& vec, __supporter_vector_element_type_v<std::vector<T>>* item, const __ndArray_shape& shp);
 
-		return *this;
-	}
+	template<typename E>
+	ndArray<__supporter_vector_element_type_v<std::vector<E>>> array(const std::vector<E>& vec);
 
-	template <typename T>
-	template <typename E>
-	ndArray<T>& ndArray<T>::operator-= (const ndArrayExpression<E>& other)
-	{
-		assert(_shape == other.raw_shape());
-		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] = static_cast<T>(item[i] - other.at(i));
-		}
-		item[0] = static_cast<T>(item[0] - other.at(0));
+	template<typename T>
+	void __support_ndArray_print(T* item, const std::vector<size_t>& shp, const __ndArray_shape& raw_shp, size_t dim, size_t highest_dim);
 
-		return *this;
-	}
+	template<typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool> = true>
+	ndArray<T> range(T start, const T end, const T interval = 1);
 
-	template <typename T>
-	template <typename E>
-	ndArray<T>& ndArray<T>::operator*= (const ndArrayExpression<E>& other)
-	{
-		assert(_shape == other.raw_shape());
-		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] = static_cast<T>(item[i] * other.at(i));
-		}
-		item[0] = static_cast<T>(item[0] * other.at(0));
+	template<typename T = double>
+	ndArray<T> homogeneous(std::initializer_list<size_t> shp, T val = 0.);
 
-		return *this;
-	}
-
-	template <typename T>
-	template <typename E>
-	ndArray<T>& ndArray<T>::operator/= (const ndArrayExpression<E>& other)
-	{
-		assert(_shape == other.raw_shape());
-		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] = static_cast<T>(item[i] / other.at(i));
-		}
-		item[0] = static_cast<T>(item[0] / other.at(0));
-
-		return *this;
-	}
-
-	template <typename T>
-	template <typename E, std::enable_if_t<std::is_arithmetic_v<E>, bool>>
-	ndArray<T>& ndArray<T>::operator+= (const E scalar)
-	{
-		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] = static_cast<T>(item[i] + scalar);
-		}
-		item[0] = static_cast<T>(item[0] + scalar);
-
-		return *this;
-	}
-
-	template <typename T>
-	template <typename E, std::enable_if_t<std::is_arithmetic_v<E>, bool>>
-	ndArray<T>& ndArray<T>::operator-= (const E scalar)
-	{
-		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] = static_cast<T>(item[i] - scalar);
-		}
-		item[0] = static_cast<T>(item[0] - scalar);
-
-		return *this;
-	}
-
-	template <typename T>
-	template <typename E, std::enable_if_t<std::is_arithmetic_v<E>, bool>>
-	ndArray<T>& ndArray<T>::operator*= (const E scalar)
-	{
-		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] = static_cast<T>(item[i] * scalar);
-		}
-		item[0] = static_cast<T>(item[0] * scalar);
-
-		return *this;
-	}
-
-	template <typename T>
-	template <typename E, std::enable_if_t<std::is_arithmetic_v<E>, bool>>
-	ndArray<T>& ndArray<T>::operator/= (const E scalar)
-	{
-		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] = static_cast<T>(item[i] / scalar);
-		}
-		item[0] = static_cast<T>(item[0] / scalar);
-
-		return *this;
-	}
-	
-	#pragma endregion
-
+	/////////////////////////////////////////////////////////////////////		definition		///////////////////////////////////////////////////////////////////
 
 	template <typename T>
 	void __support_array_func(const std::vector<T>& vec, __supporter_vector_element_type_v<std::vector<T>>* item, const __ndArray_shape& shp) {
 		if constexpr (__supporter_dim_v<std::vector<T>> == 1) {
+			if (std::is_arithmetic_v< __supporter_vector_element_type_v<std::vector<T>>>) {
+				for (size_t i = vec.size() - 1; i != 0; --i) {
+					item[i] = vec[i];
+				}
+				item[0] = vec.front();
+
+				return;
+			}
+			else {
+				const T* vec_item = vec.data();
+				for (size_t i = vec.size() - 1; i != 0; --i) {
+					memcpy_s(item + i, sizeof(T), vec_item + i, sizeof(T));
+				}
+				memcpy_s(item, sizeof(T), vec_item, sizeof(T));
+			}
 			for (size_t i = vec.size()-1; i != 0; --i) {
 				item[i] = vec[i];
 			}
@@ -1014,41 +722,43 @@ namespace na {
 		return res;
 	}
 
-
-
-	/////////////////////////////////////////////////////////////////////		namespace random		///////////////////////////////////////////////////////////////////
-
-	namespace random {
-
-		/////////////////////////////////////////////////////////////////////		declaration		///////////////////////////////////////////////////////////////////
-
-		template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool> = true>
-		ndArray<T> uniform(std::initializer_list<size_t> shape, const T s = 0., const T e = 1.);
-
-		/////////////////////////////////////////////////////////////////////		definition		///////////////////////////////////////////////////////////////////
+	template<typename T>
+	ndArray<T> homogeneous(std::initializer_list<size_t> shp, T val)
+	{
+		ndArray<T> res;
 		
-		template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool> >
-		ndArray<T> uniform(std::initializer_list<size_t> shape, const T s, const T e)
-		{
-			assert(shape.size() != 0);
+		res.alloc(shp);
 
-			std::mt19937 gen{ std::random_device()() };
-			std::conditional_t<std::is_floating_point_v<T>, std::uniform_real_distribution<T>,
-				std::uniform_int_distribution<T>> dist{ s, e };
-
-			ndArray<T> res;
-			res.alloc(shape);
-
-			size_t size = res.raw_shape().back();
-			T* data = (T*)res.data();
-			for (size_t i = size - 1; i != 0; --i) {
-				data[i] = dist(gen);
+		if (std::is_arithmetic_v<T>) {
+			for (size_t i = res.total_size() - 1; i != 0; --i) {
+				res.at(i) = val;
 			}
-			data[0] = dist(gen);
-
-			return res;
+			res.at(0) = val;
 		}
+		else {
+			T* ptr = (T*)res.data();
+
+			for (size_t i = res.total_size() - 1; i != 0; --i) {
+				memcpy_s(ptr + i, sizeof(T), &val, sizeof(T));
+			}
+			memcpy_s(ptr, sizeof(T), &val, sizeof(T));
+		}
+
+		return res;
 	}
 }
+
+/////////////////////////////////////////////////////////////////////		vectorize operation		///////////////////////////////////////////////////////////////////
+
+#include "ndArray_vectorize_operation.hpp"
+
+/////////////////////////////////////////////////////////////////////		random		///////////////////////////////////////////////////////////////////
+
+#include "ndArray_random.hpp"
+
+/////////////////////////////////////////////////////////////////////		broadcasting		///////////////////////////////////////////////////////////////////
+
+#include "ndArray_broadcasting.hpp"
+
 
 #endif
