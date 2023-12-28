@@ -83,13 +83,17 @@ namespace na {
 
 		~ndArray() noexcept;
 
-		T& at(size_t i) const { return item[i]; }
+		T& at(size_t i) { return item[i]; }
 
-		T& at_s(size_t i) const { assert(i < _shape.back()); return item[i]; }
+		T& at_s(size_t i) { assert(i < _shape.back()); return item[i]; }
 
-		ndArray<T> access(size_t i);
+		const T& at(size_t i) const { return item[i]; }
 
-		ndArray<T> access(std::initializer_list<size_t> list);
+		const T& at_s(size_t i) const { assert(i < _shape.back()); return item[i]; }
+
+		ndArray<T> access(size_t i) const;
+
+		ndArray<T> access(std::initializer_list<size_t> list) const;
 
 		const __ndArray_shape& raw_shape() const { return _shape; }
 
@@ -223,7 +227,7 @@ namespace na {
 	}
 
 	template <typename T>
-	ndArray<T> ndArray<T>::access(size_t i)
+	ndArray<T> ndArray<T>::access(size_t i) const
 	{
 		assert(_shape.size() != 1);
 		assert(i < _shape.back());
@@ -231,7 +235,7 @@ namespace na {
 	}
 
 	template <typename T>
-	ndArray<T> ndArray<T>::access(std::initializer_list<size_t> list)
+	ndArray<T> ndArray<T>::access(std::initializer_list<size_t> list) const
 	{
 		assert(list.size() != 0);
 		assert(_shape.size() > list.size());
@@ -266,9 +270,9 @@ namespace na {
 		assert(_shape == other.raw_shape());
 
 		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] = static_cast<T>(other.at(i));
+			item[i] = other.at(i);
 		}
-		item[0] = static_cast<T>(other.at(0));
+		item[0] = other.at(0);
 
 		return *this;
 	}
