@@ -4,9 +4,19 @@
 namespace na {
 
 	std::allocator<size_t> __ndArray_shape_allocator;
-	const size_t __static_ptr_size = 5;
+	constexpr size_t __static_ptr_size = 5;
 
 	////////////////////////////////////////////// shape member function //////////////////////////////////////////////////////////////
+
+	std::vector<size_t> __ndArray_shape::to_vector(const __ndArray_shape& shp)
+	{
+		std::vector<size_t> vec; vec.reserve(shp.size() - 1);
+		for (size_t i = shp.size() - 1; i != 0; --i) {
+			vec.push_back(shp[i] / shp[i - 1]);
+		}
+
+		return vec;
+	}
 
 	__ndArray_shape::__ndArray_shape(const std::vector<size_t>& shp): _size(shp.size() + 1), capacity(0), static_ptr{1,0,0,0,0}
 	{
@@ -213,6 +223,13 @@ namespace na {
 
 	__ndArray_shape& __ndArray_shape::reshape(std::initializer_list<size_t> shp)
 	{
+		if (shp.size() == 0) {
+			assert(back() == 1);
+			_size = 1;
+			return *this;
+		}
+
+
 		size_t sum = 1;
 		for (auto& elem : shp) {
 			sum *= elem;

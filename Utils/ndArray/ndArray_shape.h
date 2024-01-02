@@ -18,6 +18,8 @@ namespace na {
 		size_t capacity;
 	public:
 		friend class __ndArray_shape_view;
+		static std::vector<size_t> to_vector(const __ndArray_shape& shp);
+
 		__ndArray_shape() : ptr(nullptr), _size(0), capacity(0), static_ptr{1,0,0,0,0} {}
 		__ndArray_shape(const std::vector<size_t>& shp);
 		__ndArray_shape(std::initializer_list<size_t> shp);
@@ -29,7 +31,7 @@ namespace na {
 		__ndArray_shape& init(const std::vector<size_t>& shp);
 		__ndArray_shape& init(std::initializer_list<size_t> shp);
 		size_t size() const { return _size; }
-		size_t back() const { return ptr[_size - 1]; }
+		size_t back() const { assert(_size != 0); return ptr[_size - 1]; }
 		__ndArray_shape& reshape(const std::vector<size_t>& shp);
 		__ndArray_shape& reshape(std::initializer_list<size_t> shp);
 		__ndArray_shape& decrease_dim(size_t new_size);

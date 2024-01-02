@@ -19,10 +19,15 @@
 
 #include "ndArray_supporters_for_stdvector.hpp"
 
+/////////////////////////////////////////////////////////////////////		allocator		///////////////////////////////////////////////////////////////////
+
+#include "ndArray_allocator.h"
+
 
 namespace na {
-	/////////////////////////////////////////////////////////////////////		forward declaration		///////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////		extern variables		///////////////////////////////////////////////////////////////////
 	
+	extern 	__ndArray_allocator __ndArray_allocator_instance;
 
 	/////////////////////////////////////////////////////////////////////		helper class		///////////////////////////////////////////////////////////////////
 	template <typename E>
@@ -61,7 +66,7 @@ namespace na {
 		{
 			++(*ref_cnt);
 		}
-		void _memcpy(void* dst, void* src, size_t size);
+		void _memcpy(void* dst, void* src, size_t size) const;
 
 	public:
 
@@ -109,7 +114,7 @@ namespace na {
 
 		T dot(const ndArray<T>& other);
 
-		ndArray<T> copy();
+		ndArray<T> copy() const;
 
 		template <typename E>
 		ndArray<T>& copy(const ndArray<E>& other);
@@ -146,7 +151,7 @@ namespace na {
 		template <typename E>
 		ndArray<T>& operator=(const ndArrayExpression<E>& other);
 
-		template<typename E, std::enable_if_t<std::is_arithmetic_v<E>, bool> = true>
+		template<typename E>
 		T& operator=(const E v) { assert(_shape.size() == 1); *item = v; return *item; }
 
 		operator T& () { assert(_shape.size() == 1); return *item; }
@@ -183,22 +188,24 @@ namespace na {
 	template <typename T>
 	template <typename E>
 	ndArray<T>::ndArray(ndArrayExpression<E> const& expr):_shape(expr.raw_shape()) {
-		item = original = (T*)malloc(sizeof(T) * _shape.back() + sizeof(size_t));
+		//item = original = (T*)malloc(sizeof(T) * _shape.back() + sizeof(size_t));
+		item = original = (T*)__ndArray_allocator_instance.allocate(sizeof(T) * _shape.back() + sizeof(size_t));
 		assert(item != nullptr);
 		ref_cnt = (size_t*)(item + _shape.back());
 		*ref_cnt = 1;
 
 		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] = static_cast<T>(expr.at(i));
+			item[i] = expr.at(i);
 		}
-		item[0] = static_cast<T>(expr.at(0));
+		item[0] = expr.at(0);
 	}
 
 	template <typename T>
 	ndArray<T>::~ndArray() noexcept
 	{
 		if (original != nullptr && --(*ref_cnt) == 0) {
-			free(original);
+			//free(original);
+			__ndArray_allocator_instance.deallocate(original, _shape.back());
 		}
 	}
 
@@ -298,7 +305,8 @@ namespace na {
 
 		_shape.init(list);
 
-		item = original = (T*)malloc(sizeof(T) * _shape.back() + sizeof(size_t));
+		//item = original = (T*)malloc(sizeof(T) * _shape.back() + sizeof(size_t));
+		item = original = (T*)__ndArray_allocator_instance.allocate(sizeof(T) * _shape.back() + sizeof(size_t));
 		assert(item != nullptr);
 		ref_cnt = (size_t*)(item + _shape.back());
 		*ref_cnt = 1;
@@ -314,7 +322,8 @@ namespace na {
 
 		_shape.init(vec);
 
-		item = original = (T*)malloc(sizeof(T) * _shape.back() + sizeof(size_t));
+		//item = original = (T*)malloc(sizeof(T) * _shape.back() + sizeof(size_t));
+		item = original = (T*)__ndArray_allocator_instance.allocate(sizeof(T) * _shape.back() + sizeof(size_t));
 		assert(item != nullptr);
 		ref_cnt = (size_t*)(item + _shape.back());
 		*ref_cnt = 1;
@@ -329,7 +338,8 @@ namespace na {
 
 		_shape = shp;
 
-		item = original = (T*)malloc(sizeof(T) * _shape.back() + sizeof(size_t));
+		//item = original = (T*)malloc(sizeof(T) * _shape.back() + sizeof(size_t));
+		item = original = (T*)__ndArray_allocator_instance.allocate(sizeof(T) * _shape.back() + sizeof(size_t));
 		assert(item != nullptr);
 		ref_cnt = (size_t*)(item + _shape.back());
 		*ref_cnt = 1;
@@ -350,15 +360,10 @@ namespace na {
 	}
 
 	template <typename T>
-	ndArray<T> ndArray<T>::copy()
+	ndArray<T> ndArray<T>::copy() const
 	{
 		ndArray<T> cpy;
-		cpy._shape = _shape;
-
-		cpy.item = cpy.original = (T*)malloc(sizeof(T) * cpy._shape.back() + sizeof(size_t));
-		assert(cpy.item != nullptr);
-		cpy.ref_cnt = (size_t*)(cpy.item + cpy._shape.back());
-		*(cpy.ref_cnt) = 1;
+		cpy.alloc(_shape);
 
 		_memcpy(cpy.item, item, _shape.back());
 
@@ -372,9 +377,9 @@ namespace na {
 		assert(_shape == other._shape);
 
 		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] = static_cast<T>(other.at(i));
+			item[i] = other.at(i);
 		}
-		item[0] = static_cast<T>(other.at(0));
+		item[0] = other.at(0);
 
 		return *this;
 	}
@@ -386,9 +391,9 @@ namespace na {
 		assert(_shape == other.raw_shape());
 
 		for (size_t i = _shape.back() - 1; i != 0; --i) {
-			item[i] = static_cast<T>(other.at(i));
+			item[i] = other.at(i);
 		}
-		item[0] = static_cast<T>(other.at(0));
+		item[0] = other.at(0);
 
 		return *this;
 	}
@@ -398,7 +403,8 @@ namespace na {
 	ndArray<T>& ndArray<T>::shallow_copy(const ndArray<E>& other)
 	{
 		if (original != nullptr && --(*ref_cnt) == 0) {
-			free(original);
+			//free(original);
+			__ndArray_allocator_instance.deallocate(original, _shape.back());
 		}
 
 		item = other.item;
@@ -409,7 +415,7 @@ namespace na {
 	}
 
 	template <typename T>
-	void ndArray<T>::_memcpy(void* dst, void* src, size_t size)
+	void ndArray<T>::_memcpy(void* dst, void* src, size_t size) const
 	{
 		size *= sizeof(T);
 		size_t i = 0;
@@ -444,22 +450,20 @@ namespace na {
 	template <typename T>
 	ndArray<T> ndArray<T>::sum(size_t dim) const
 	{
+		assert(0 < dim && dim < _shape.size());
+
 		size_t i, j, k;
-		size_t dim_size = _shape[dim] / _shape[dim - 1];
 		size_t curr_i;
 
 		ndArray<T> res;
-		res._shape = _shape.dim_erased(dim);
+		res.alloc(_shape.dim_erased(dim));
+		
+		for (i = 0, curr_i = 0; i < res._shape.back(); i += _shape[dim-1], curr_i += _shape[dim]) {
+			for (k = 0; k < _shape[dim - 1]; ++k) {
+				res.item[i + k] = item[curr_i + k];
+			}
 
-		res.item = res.original = (T*)calloc(res._shape.back() + sizeof(size_t) / sizeof(T), sizeof(T));
-		assert(res.original != nullptr);
-		
-		res.ref_cnt = (size_t*)(res.original + res._shape.back());
-		++(*(res.ref_cnt));
-		
-		for (i = 0; i < res._shape.back(); i += _shape[dim-1]) {
-			curr_i = i * dim_size;
-			for (j = 0; j < _shape[dim]; j += _shape[dim-1]) {
+			for (j = _shape[dim-1]; j < _shape[dim]; j += _shape[dim-1]) {
 				for (k = 0; k < _shape[dim - 1]; ++k) {
 					res.item[i + k] += item[curr_i + j + k];
 				}
@@ -483,22 +487,15 @@ namespace na {
 	template<typename T>
 	ndArray<size_t> ndArray<T>::argmax(size_t dim) const
 	{
+		assert(0 < dim && dim < _shape.size());
 		size_t i, j, k;
-		size_t dim_size = _shape[dim] / _shape[dim - 1];
 		size_t curr_i;
 
 		ndArray<size_t> res;
+		res.alloc(_shape.dim_erased(dim));
 		std::vector<T> temp(_shape[dim - 1]);
-		res._shape = _shape.dim_erased(dim);
 
-		res.item = res.original = (size_t*)calloc(res._shape.back() + 1, sizeof(size_t));
-		assert(res.original != nullptr);
-
-		res.ref_cnt = (res.original + res._shape.back());
-		++(*(res.ref_cnt));
-
-		for (i = 0; i < res._shape.back(); i += _shape[dim - 1]) {
-			curr_i = i * dim_size;
+		for (i = 0, curr_i = 0; i < res._shape.back(); i += _shape[dim - 1], curr_i += _shape[dim]) {
 
 			for (k = 0; k < _shape[dim - 1]; ++k) {
 				temp[k] = item[curr_i + k];
@@ -584,6 +581,10 @@ namespace na {
 	template<typename T>
 	void __support_ndArray_print(T* item, const std::vector<size_t>& shp, const __ndArray_shape& raw_shp, size_t dim, size_t highest_dim);
 
+	template<typename T>
+	void __support_ndArrayExpression_print(const ndArrayExpression<T>& item, size_t offset, 
+		const std::vector<size_t>& shp, const __ndArray_shape& raw_shp, size_t dim, size_t highest_dim);
+
 	template<typename T, std::enable_if_t<std::is_arithmetic_v<T>, bool> = true>
 	ndArray<T> range(T start, const T end, const T interval = 1);
 
@@ -647,9 +648,10 @@ namespace na {
 
 		if (dim == 1) {
 			cout << '[';
-			for (size_t i = 0; i != shp.back(); ++i) {
+			for (size_t i = 0; ; ++i) {
 				cout << item[i];
-				if (i != shp.back() - 1) cout << ", ";
+				if (i == shp.back() - 1) break;
+				cout << ", ";
 			}
 			cout << ']';
 
@@ -691,6 +693,64 @@ namespace na {
 		if (shp.size() == 0) return out << arr.at(0);
 
 		__support_ndArray_print((T*)arr.data(), shp, arr.raw_shape(), shp.size(), shp.size());
+
+		return out;
+	}
+
+	template<typename T>
+	void __support_ndArrayExpression_print(const ndArrayExpression<T>& item, size_t offset,
+		const std::vector<size_t>& shp, const __ndArray_shape& raw_shp, size_t dim, size_t highest_dim)
+	{
+		using std::cout;
+		using std::endl;
+
+		if (dim == 1) {
+			cout << '[';
+			for (size_t i = 0; ; ++i) {
+				cout << item.at(offset + i);
+				if (i == shp.back() - 1) break;
+				cout << ", ";
+			}
+			cout << ']';
+
+			if (1 == highest_dim) {
+				cout << endl;
+				return;
+			}
+		}
+		else {
+			size_t ind = highest_dim - dim;
+			std::cout << '[';
+			for (size_t i = 0; i < shp[ind]; ++i) {
+				if (i != 0) {
+					for (size_t j = 0; j < highest_dim - dim + 1; ++j)
+						std::cout << ' ';
+				}
+
+				__support_ndArrayExpression_print(item, offset + i * raw_shp[dim - 1], shp, raw_shp, dim - 1, highest_dim);
+
+				if (i != shp[ind] - 1) {
+					std::cout << "," << std::endl;
+					for (size_t j = 0; j < dim / 3; ++j) std::cout << std::endl;
+				}
+
+			}
+			std::cout << ']';
+
+			if (dim == highest_dim) {
+				std::cout << std::endl;
+				return;
+			}
+		}
+	}
+
+	template<typename T>
+	std::ostream& operator << (std::ostream& out, const ndArrayExpression<T>& arr)
+	{
+		const std::vector<size_t>& shp = __ndArray_shape::to_vector(arr.raw_shape());
+		if (shp.size() == 0) return out << arr.at(0);
+
+		__support_ndArrayExpression_print(arr, 0, shp, arr.raw_shape(), shp.size(), shp.size());
 
 		return out;
 	}
@@ -763,6 +823,10 @@ namespace na {
 /////////////////////////////////////////////////////////////////////		broadcasting		///////////////////////////////////////////////////////////////////
 
 #include "ndArray_broadcasting.hpp"
+
+/////////////////////////////////////////////////////////////////////		linear algebra		///////////////////////////////////////////////////////////////////
+
+#include "ndArray_linalg.hpp"
 
 
 #endif

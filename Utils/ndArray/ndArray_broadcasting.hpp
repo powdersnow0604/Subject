@@ -1,6 +1,5 @@
 #ifndef __NDARRAY_BROADCASTING_HPP__
 #define __NDARRAY_BROADCASTING_HPP__
-#include <iostream>
 
 namespace na {
 
@@ -72,7 +71,7 @@ namespace na {
 			size_t sub_index = (i - index * target_dim_size) % dim_size;
 			return arr.item[index * dim_size + sub_index];
 		}
-
+		  
 		na::ndArray<T> operator[](size_t i) const
 		{
 			if (dim == 0) return arr[i];
@@ -81,8 +80,7 @@ namespace na {
 			res.alloc(target_shape.dim_decreased(target_shape.size() - 1));
 
 			if (dim == target_shape.size() - 1) {
-				size_t dim_elements = dim_size / dim_below_size;
-				size_t index = (i % dim_elements) * dim_below_size;
+				size_t index = (i * dim_below_size) % dim_size;
 				for (size_t j = 0; j < res.total_size(); ++j) {
 					res.item[j] = arr.item[index + j];
 				}
