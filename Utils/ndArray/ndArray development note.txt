@@ -1,0 +1,37 @@
+[2023-12-28]
+1. broadcasting 이 형편 없다
+	1) 나눗셈이 너무 많이 쓰임
+2. cache 를 사용한 allocator 추가
+	1) 정책: LIFO
+	2) cache size 는 4; 조정 가능
+	3) zero initialized allocate 는 그냥 calloc 사용
+	4) cache miss 가 발생하면 timer 가 1 감소하며, timer 가 0 이 되면 가장 처음 cache 에 저장된 메모리 해제
+
+[2023-12-31]
+1. cache 를 사용한 allocator 수정
+	1) 정책: random
+	2) 4KB 단위로 size 를 나누어 최대 128KB, 총 32 개의 계급으로 나눔
+	3) 각 계급 당 2 개의 메모리 저장 가능
+	4) timer out 이 발생할 때마다 timer strike 1 증가
+	5) cache miss 가 발생하면 timer 가 1 감소하며, timer 가 0 이 되면 random 하게 하나의 메모리 공간 선택, caching 되어 있는 메모리가 있으면 해제하는 것을 timer strike 만큼 반복
+	6) timer strike 는 cache hit 가 발생하면 1로 초기화
+	7) 각 계급의 메모리가 둘 다 차있을 때 해당 계급으로 dealloc 이 발생하면 이전 메모리를 해제함
+
+2. linarg 추가
+	1) 어떻게 최적화 하지
+	2) 나는 말하는 감자야
+	3) 1 차원 array 는 column vector 로 다룸
+	4) 1 차원 array 의 transpose 의 shape (1, n) -> 2d array
+	5) shape (1, n) 의 trnaspose 는 shape (n, 1) 이 되도록 놔둠
+	6) shape (1, n) 의 2 차원 array 는 vector 로서 다룸
+
+[2024-01-01]
+1. allocator 에 mutex 추가
+	1) deallocate 는 if 문에서 2 개의 조건을 검사하는데, 이를 2 개의 if문으로 분할; 두 번째 조건만 mutex 필요하기 때문
+
+2. linarg 수정
+	1) expression template 사용
+	2) ***  expression template 사용하여 at 을 구현할 때, index 를 계산하기 위해 나눗셈을 사용하는 등 계산량이 늘어나는 문제 ***
+	3) transpose matrix 의 경우, O(r + c) 만큼의 공간을 사용해, at으로 하나의 원소를 계산하는데 한 번의 정수 나눗셈, 뺄셈, 덧셈 사용
+	4) expression template 의 operator[] 는 선형대수학에 관계없이 결과 array 에 대해서 계산됨
+	5) 근데 아무리 생각해봐도 expression template 안 쓰는게 연산 속도가 더 빠를 것 같은데
