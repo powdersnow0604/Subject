@@ -16,7 +16,7 @@ typedef enum LOGLEVEL_ {
 	CRITICAL
 }LOGLEVEL;
 
-void logger(FILE* file, const char* log, LOGLEVEL level);
+void logger(LOGLEVEL level, const char* log, FILE* file);
 
 #ifdef __cplusplus
 }
