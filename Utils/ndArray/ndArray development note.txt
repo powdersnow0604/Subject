@@ -35,3 +35,18 @@
 	3) transpose matrix 의 경우, O(r + c) 만큼의 공간을 사용해, at으로 하나의 원소를 계산하는데 한 번의 정수 나눗셈, 뺄셈, 덧셈 사용
 	4) expression template 의 operator[] 는 선형대수학에 관계없이 결과 array 에 대해서 계산됨
 	5) 근데 아무리 생각해봐도 expression template 안 쓰는게 연산 속도가 더 빠를 것 같은데
+
+[2024-01-04]
+1. ndArray shape 에 멤버 함수 추가
+	1) shrink_dim_to_fit: (1,1,7) -> (7)
+	2) extend_1d: (7) -> (1,7)
+2. linalg
+	1) ndArray 멤버 함수 transpose 작성
+	2) matrix multiplication 작성
+	3) array 의 LA 적 특성을 알려주는 함수 ' type ' 추가
+[2024-01-05]
+1. linalg
+	1) linalg 용 allocator 변수 추가
+	2) dot product 추가
+	3) outer product 추가
+	4) multiplication, dot, outer product 는 각각 O(r) 혹은 O(c) 만큼의 공간을 추가로 요구하여 곱셈 횟수를 한번 줄임
