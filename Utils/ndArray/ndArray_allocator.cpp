@@ -1,12 +1,18 @@
 #include <memory>
 #include "ndArray_allocator.h"
 
+#define ALIGNED_MALLOC(size, align) _aligned_malloc((size), (align))
+
 
 namespace na {
 
 	////////////////////////////  instance  ////////////////////////////
 
 	__ndArray_allocator __ndArray_allocator_instance;
+
+	namespace linalg {
+		__ndArray_allocator __ndArray_allocator_linalg;
+	}
 
 	////////////////////////////////////////////////////////////////////
 
@@ -19,6 +25,7 @@ namespace na {
 
 			if (candidate) return candidate;
 		}
+		
 		return malloc(size);
 	}
 
@@ -29,8 +36,10 @@ namespace na {
 
 	void __ndArray_allocator::deallocate(void* ptr, size_t size)
 	{
-		if (ptr == nullptr) return;
-		if (size >= cache.limit) free(ptr);
+		if (size >= cache.limit) {
+			free(ptr);
+			return;
+		}
 
 		mtx.lock();
 		cache.deallocate(ptr, size);

@@ -10,6 +10,7 @@
 #include <random>
 #include <utility>
 
+
 /////////////////////////////////////////////////////////////////////		shape		///////////////////////////////////////////////////////////////////
 
 #include "ndArray_shape.h"
@@ -25,6 +26,13 @@
 
 
 namespace na {
+	/////////////////////////////////////////////////////////////////////		forward declaration		///////////////////////////////////////////////////////////////////
+
+	namespace linalg {
+		template<typename U, typename V>
+		class __ndArray_inner_base;
+	}
+
 	/////////////////////////////////////////////////////////////////////		extern variables		///////////////////////////////////////////////////////////////////
 	
 	extern 	__ndArray_allocator __ndArray_allocator_instance;
@@ -69,7 +77,6 @@ namespace na {
 		void _memcpy(void* dst, void* src, size_t size) const;
 
 	public:
-
 		template <typename E>
 		friend class broadcast;
 
@@ -106,13 +113,16 @@ namespace na {
 
 		size_t dim() const { return _shape.size() - 1; }
 
-		void alloc(std::initializer_list<size_t> list);
+		ndArray<T>& shrink_dim() { _shape.shrink_dim_to_fit(); return *this; }
 
-		void alloc(const std::vector<size_t>& vec);
+		ndArray<T>& alloc(std::initializer_list<size_t> list);
 
-		void alloc(const __ndArray_shape& vec);
+		ndArray<T>& alloc(const std::vector<size_t>& vec);
 
-		T dot(const ndArray<T>& other);
+		ndArray<T>& alloc(const __ndArray_shape& vec);
+
+		template<typename E>
+		linalg::__ndArray_inner_base<ndArray<T>, E> dot(const ndArrayExpression<E>& other);
 
 		ndArray<T> copy() const;
 
@@ -121,6 +131,8 @@ namespace na {
 
 		template <typename E>
 		ndArray<T>& copy(const ndArrayExpression<E>& other);
+
+		ndArray<T>& copy(const T* other);
 
 		template <typename E>
 		ndArray<T>& shallow_copy(const ndArray<E>& other);
@@ -139,7 +151,11 @@ namespace na {
 
 		ndArray<size_t> argmax(size_t dim = 1) const;
 
+		ndArray<size_t> argmin(size_t dim = 1) const;
+
 		ndArray<T>& shuffle(size_t dim = 1, bool synchronize = false);
+		
+		ndArray<T>& transpose();
 
 		#pragma region ndArray_operators
 		ndArray<T> operator[](size_t i) const;
@@ -296,7 +312,7 @@ namespace na {
 	}
 
 	template <typename T>
-	void ndArray<T>::alloc(std::initializer_list<size_t> list)
+	ndArray<T>& ndArray<T>::alloc(std::initializer_list<size_t> list)
 	{
 		assert(list.size() != 0);
 		if (original != nullptr && --(*ref_cnt) == 0) {
@@ -310,10 +326,12 @@ namespace na {
 		assert(item != nullptr);
 		ref_cnt = (size_t*)(item + _shape.back());
 		*ref_cnt = 1;
+
+		return *this;
 	}
 
 	template <typename T>
-	void ndArray<T>::alloc(const std::vector<size_t>& vec)
+	ndArray<T>& ndArray<T>::alloc(const std::vector<size_t>& vec)
 	{
 		assert(vec.size() != 0);
 		if (original != nullptr && --(*ref_cnt) == 0) {
@@ -327,10 +345,12 @@ namespace na {
 		assert(item != nullptr);
 		ref_cnt = (size_t*)(item + _shape.back());
 		*ref_cnt = 1;
+
+		return *this;
 	}
 
 	template <typename T>
-	void ndArray<T>::alloc(const __ndArray_shape& shp)
+	ndArray<T>& ndArray<T>::alloc(const __ndArray_shape& shp)
 	{
 		if (original != nullptr && --(*ref_cnt) == 0) {
 			free(original);
@@ -343,20 +363,8 @@ namespace na {
 		assert(item != nullptr);
 		ref_cnt = (size_t*)(item + _shape.back());
 		*ref_cnt = 1;
-	}
 
-	template <typename T>
-	T ndArray<T>::dot(const ndArray<T>& other)
-	{
-		assert(_shape.size() == 2 && _shape == other._shape);
-
-		T sum = 0;
-		for (size_t i = _shape.back() - 1; i != 0 ; --i) {
-			sum += other.item[i] * item[i];
-		}
-		sum += other.item[0] * item[0];
-
-		return sum;
+		return *this;
 	}
 
 	template <typename T>
@@ -397,6 +405,14 @@ namespace na {
 
 		return *this;
 	}
+
+	template <typename T>
+	ndArray<T>& ndArray<T>::copy(const T* other)
+	{
+		_memcpy(item, (void*)other, _shape.back());
+		return *this;
+	}
+
 
 	template <typename T>
 	template <typename E>
@@ -504,6 +520,36 @@ namespace na {
 			for (j = _shape[dim - 1]; j < _shape[dim]; j += _shape[dim - 1]) {
 				for (k = 0; k < _shape[dim - 1]; ++k) {
 					if (temp[k] < item[curr_i + j + k]) {
+						res.item[i + k] = j / _shape[dim - 1];
+						temp[k] = item[curr_i + j + k];
+					}
+				}
+			}
+		}
+
+		return res;
+	}
+
+	template<typename T>
+	ndArray<size_t> ndArray<T>::argmin(size_t dim) const
+	{
+		assert(0 < dim && dim < _shape.size());
+		size_t i, j, k;
+		size_t curr_i;
+
+		ndArray<size_t> res;
+		res.alloc(_shape.dim_erased(dim));
+		std::vector<T> temp(_shape[dim - 1]);
+
+		for (i = 0, curr_i = 0; i < res._shape.back(); i += _shape[dim - 1], curr_i += _shape[dim]) {
+
+			for (k = 0; k < _shape[dim - 1]; ++k) {
+				temp[k] = item[curr_i + k];
+			}
+
+			for (j = _shape[dim - 1]; j < _shape[dim]; j += _shape[dim - 1]) {
+				for (k = 0; k < _shape[dim - 1]; ++k) {
+					if (temp[k] > item[curr_i + j + k]) {
 						res.item[i + k] = j / _shape[dim - 1];
 						temp[k] = item[curr_i + j + k];
 					}

@@ -190,3 +190,62 @@ __ndArray_linarg_transpose_base<T> transpose(const ndArrayExpression<T>& arr) {
 	//return __ndArray_linarg_transpose_matrix<ndArrayExpression<T>>(arr);
 
 }
+
+
+/////////////////////////////////////////////////////////////////////		matrix multiplication		///////////////////////////////////////////////////////////////////
+
+template <typename U, typename V>
+auto operator^ (const ndArray<U>& arr1, const ndArray<V>& arr2) -> ndArray<decltype(arr1.at(0)* arr2.at(0))> {
+	assert(arr1.dim() <= 2 && arr1.dim() > 0);
+	assert(arr2.dim() <= 2 && arr2.dim() > 0);
+
+	size_t arr1_totalsize;
+	size_t arr1_row;
+	size_t arr1_col;
+
+	if (arr1.dim() == 1) {
+		arr1_totalsize = arr1.total_size();
+		arr1_row = arr1.total_size();
+		arr1_col = 1;
+	}
+	else {
+		const __ndArray_shape& arr1_shp = arr1.raw_shape();
+		arr1_totalsize = arr1_shp[2];
+		arr1_row = arr1_shp[2] / arr1_shp[1];
+		arr1_col = arr1_shp[1];
+	}
+
+	size_t arr2_row;
+	size_t arr2_col;
+
+	if (arr2.dim() == 1) {
+		arr2_row = arr2.total_size();
+		arr2_col = 1;
+	}
+	else {
+		const __ndArray_shape& arr2_shp = arr2.raw_shape();
+		arr2_row = arr2_shp[2] / arr2_shp[1];
+		arr2_col = arr2_shp[1];
+	}
+
+	assert(arr1_col == arr2_row);
+
+	ndArray<decltype(arr1.at(0)* arr2.at(0))> res;
+	res.alloc({ arr1_row, arr2_col });
+
+	for (size_t res_i = 0, row_i = 0; row_i < arr1_totalsize; res_i += arr2_col, row_i += arr1_col) {
+		for (size_t j = 0; j < arr2_col; ++j) {
+			//res[i][j] = arr1[i][0] * arr2[0][j];
+			res.at(res_i + j) = arr1.at(row_i) * arr2.at(j);
+
+			for (size_t k = 1, row_k = arr2_col; k < arr1_col; ++k, row_k += arr2_col) {
+				//res[i][j] += arr1[i][k] * arr2[k][j];
+				res.at(res_i + j) += arr1.at(row_i + k) * arr2.at(row_k + j);
+			}
+		}
+	}
+
+	if (arr1_row == 1 && arr2_col == 1) res.reshape({});
+
+	return res;
+}

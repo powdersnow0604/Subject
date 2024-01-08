@@ -38,6 +38,8 @@ namespace na {
 		__ndArray_shape dim_decreased(size_t new_size) const;
 		__ndArray_shape& erase_dim(size_t dim);
 		__ndArray_shape dim_erased(size_t dim) const;
+		__ndArray_shape& shrink_dim_to_fit();
+		__ndArray_shape& extend_1d();
 		bool operator== (const __ndArray_shape& other) const;
 		__ndArray_shape& operator=(const __ndArray_shape& other);
 		size_t& operator[](size_t i) { assert(i < _size);  return ptr[i]; }
@@ -55,6 +57,7 @@ namespace na {
 		void init(const __ndArray_shape& shp);
 		__ndArray_shape_view& operator=(const __ndArray_shape_view& other);
 		size_t size() const { return _size; }
+		size_t back() const { assert(_size != 0); return ptr[_size - 1]; }
 		size_t operator[](size_t i) const { assert(i < _size); return ptr[i]; }
 	};
 

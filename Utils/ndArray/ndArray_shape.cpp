@@ -355,15 +355,51 @@ namespace na {
 			return *this;
 		}
 		else {
-			if (_size > __static_ptr_size) __ndArray_shape_allocator.deallocate(ptr, _size);
+			if (_size > __static_ptr_size || capacity != 0) __ndArray_shape_allocator.deallocate(ptr, _size);
 			ptr = __ndArray_shape_allocator.allocate(other._size);
-			_size = other._size;
+			_size = capacity = other._size;
 			for (size_t i = _size - 1;; --i) {
 				ptr[i] = other.ptr[i];
 				if (i == 0) break;
 			}
 			return *this;
 		}
+	}
+
+	__ndArray_shape& __ndArray_shape::shrink_dim_to_fit()
+	{
+		for (size_t i = _size - 1; i != 0; --i) {
+			if (ptr[i] == ptr[i-1]) {
+				--_size;
+				continue;
+			}
+			break;
+		}
+
+		return *this;
+	}
+
+	__ndArray_shape& __ndArray_shape::extend_1d()
+	{
+		if (_size < __static_ptr_size || _size < capacity) {
+			ptr[_size] = ptr[_size - 1];
+			++_size;
+		}
+		else {
+			capacity = ++_size;
+			size_t* temp = ptr;
+			ptr = __ndArray_shape_allocator.allocate(capacity);
+			
+			ptr[0] = 1;
+			for (size_t i = _size - 2; i != 0; --i) {
+				ptr[i] = temp[i];
+			}
+			ptr[_size - 1] = ptr[_size - 2];
+
+			if (_size - 1 > __static_ptr_size || capacity != 0) __ndArray_shape_allocator.deallocate(ptr, _size);
+		}
+
+		return *this;
 	}
 
 	///////////////////////////////////////////////////////  view member function ///////////////////////////////////////////////////////
