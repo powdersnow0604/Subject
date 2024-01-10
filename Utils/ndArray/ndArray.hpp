@@ -31,6 +31,9 @@ namespace na {
 	namespace linalg {
 		template<typename U, typename V>
 		class __ndArray_inner_base;
+
+		template<typename U, typename V>
+		class __ndArray_outer_base;
 	}
 
 	/////////////////////////////////////////////////////////////////////		extern variables		///////////////////////////////////////////////////////////////////
@@ -38,6 +41,7 @@ namespace na {
 	extern 	__ndArray_allocator __ndArray_allocator_instance;
 
 	/////////////////////////////////////////////////////////////////////		helper class		///////////////////////////////////////////////////////////////////
+
 	template <typename E>
 	class ndArrayExpression {
 	public:
@@ -46,6 +50,13 @@ namespace na {
 		auto at(size_t i) const { return static_cast<E const&>(*this).at(i); }
 		//std::vector<size_t> shape() const { return static_cast<E const&>(*this).shape(); }
 		const auto& raw_shape() const { return static_cast<E const&>(*this).raw_shape(); }
+		
+		template <typename U>
+		operator U() const {
+			assert(this->raw_shape().size() == 1);
+			return this->at(0);
+		}
+		
 	};
 
 
@@ -124,6 +135,9 @@ namespace na {
 		template<typename E>
 		linalg::__ndArray_inner_base<ndArray<T>, E> dot(const ndArrayExpression<E>& other);
 
+		template<typename E>
+		linalg::__ndArray_outer_base<ndArray<T>, E> outer(const ndArrayExpression<E>& other);
+
 		ndArray<T> copy() const;
 
 		template <typename E>
@@ -170,7 +184,7 @@ namespace na {
 		template<typename E>
 		T& operator=(const E v) { assert(_shape.size() == 1); *item = v; return *item; }
 
-		operator T& () { assert(_shape.size() == 1); return *item; }
+		//operator T& () { assert(_shape.size() == 1); return *item; }
 
 		template <typename E>
 		ndArray<T>& operator+= (const ndArrayExpression<E>& other);
@@ -412,7 +426,6 @@ namespace na {
 		_memcpy(item, (void*)other, _shape.back());
 		return *this;
 	}
-
 
 	template <typename T>
 	template <typename E>

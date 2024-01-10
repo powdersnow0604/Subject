@@ -1230,6 +1230,14 @@ namespace na {
 	{
 		return linalg::__ndArray_inner_base < ndArray<T>, E>(*this, *static_cast<const E*>(&other));
 	}
+
+
+	template <typename T>
+	template<typename E>
+	linalg::__ndArray_outer_base<ndArray<T>, E> ndArray<T>::outer(const ndArrayExpression<E>& other)
+	{
+		return linalg::__ndArray_outer_base < ndArray<T>, E>(*this, *static_cast<const E*>(&other));
+	}
 }
 
 #endif

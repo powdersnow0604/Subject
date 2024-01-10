@@ -44,9 +44,16 @@
 	1) ndArray 멤버 함수 transpose 작성
 	2) matrix multiplication 작성
 	3) array 의 LA 적 특성을 알려주는 함수 ' type ' 추가
+
 [2024-01-05]
 1. linalg
 	1) linalg 용 allocator 변수 추가
 	2) dot product 추가
 	3) outer product 추가
 	4) multiplication, dot, outer product 는 각각 O(r) 혹은 O(c) 만큼의 공간을 추가로 요구하여 곱셈 횟수를 한번 줄임
+
+[2024-01-08]
+1. 멤버 함수 outer 추가
+2. type conversion operator 를 ndArray 에서 제외, ndArrayExpression 에 포함
+3. bug 수정
+	1) __ndArray_shape 의 decrease dim 이 적용된 생성자에서, 인자인 shp 의 size 와 new_size 를 비교해야되는 것을, 멤버 변수인 _size 와 비교하는 오류

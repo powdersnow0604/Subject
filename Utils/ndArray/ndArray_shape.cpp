@@ -66,7 +66,7 @@ namespace na {
 	{
 		//decrease dim
 		if (mode == 0) {
-			if (arg < _size && arg > 0) {
+			if (arg < other._size && arg > 0) {
 				_size = arg;
 			}
 			else _size = other._size;
