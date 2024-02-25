@@ -14,6 +14,7 @@ extern "C"{
 
 uint8_t *bv_set(uint8_t * KEYWORD_RESTRICT vec, uint32_t ind);
 uint8_t *bv_clear(uint8_t * KEYWORD_RESTRICT vec, uint32_t ind);
+uint8_t *bv_assign(uint8_t * KEYWORD_RESTRICT vec, uint32_t ind, uint8_t val);
 uint8_t bv_at(uint8_t * KEYWORD_RESTRICT vec, uint32_t ind);
 
 
